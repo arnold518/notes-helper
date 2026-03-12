@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-PROJECTS_DIR = Path(os.environ.get("PROJECTS_DIR", Path(__file__).parent / "projects"))
+PROJECTS_DIR = Path(os.environ.get("PROJECTS_DIR", Path(__file__).parent.parent / "projects"))
 MAX_TEXT_CHARS = 300_000
 _SAFE_LOG_ID = re.compile(r"^[A-Za-z0-9_.-]+$")
 

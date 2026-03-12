@@ -14,7 +14,7 @@ from models import Project, CreateProjectRequest, Item, ReferenceFile
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
-PROJECTS_DIR = Path(os.environ.get("PROJECTS_DIR", Path(__file__).parent.parent / "projects"))
+PROJECTS_DIR = Path(os.environ.get("PROJECTS_DIR", Path(__file__).parent.parent.parent / "projects"))
 PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
 
 _DEFAULT_MATCH_RULES = """\
