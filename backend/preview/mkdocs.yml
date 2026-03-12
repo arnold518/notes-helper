@@ -1,0 +1,187 @@
+site_name: Mathematics Notes
+repo_name: arnold518/math-notes
+repo_url: https://github.com/arnold518/math-notes
+theme:
+  name: material
+  features:
+  - content.code.copy
+  - navigation.sections
+  - header.autohide
+  - navigation.instant
+  - navigation.tracking
+  - navigation.tabs
+  - toc.follow
+  - navigation.top
+  - search.suggest
+  - search.highlight
+  - search.share
+  - navigation.indexes
+  icon:
+    repo: fontawesome/brands/github
+    admonition:
+      note: material/lightbulb-on
+      tip: fontawesome/solid/clock
+  language: ko
+  font:
+    text: Noto Sans
+    code: Ubuntu Mono
+  palette:
+  - media: '(prefers-color-scheme: light)'
+    scheme: default
+    primary: green
+    accent: green
+    toggle:
+      icon: material/weather-sunny
+      name: Switch to dark mode
+  - media: '(prefers-color-scheme: dark)'
+    scheme: slate
+    primary: green
+    accent: green
+    toggle:
+      icon: material/weather-night
+      name: Switch to light mode
+markdown_extensions:
+- pymdownx.arithmatex:
+    generic: true
+- pymdownx.highlight:
+    anchor_linenums: true
+    line_spans: __span
+    pygments_lang_class: true
+- tables
+- attr_list
+- md_in_html
+- pymdownx.blocks.caption
+- pymdownx.inlinehilite
+- pymdownx.snippets
+- pymdownx.superfences
+- admonition
+- pymdownx.details
+- pymdownx.superfences
+- pymdownx.critic
+- pymdownx.caret
+- pymdownx.keys
+- pymdownx.mark
+- pymdownx.tilde
+- toc:
+    permalink: true
+extra_javascript:
+- assets/javascripts/mathjax.js
+- https://polyfill.io/v3/polyfill.min.js?features=es6
+- https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+extra_css:
+- assets/stylesheets/extra.css
+plugins:
+- search:
+    separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+- tags:
+    tags_file: tags.md
+extra:
+  social:
+  - icon: fontawesome/brands/github
+    link: https://github.com/arnold518
+  generator: false
+nav:
+- Home: index.md
+- Linear Algebra:
+  - linear-algebra/index.md
+  - Ch 1. Vector Spaces:
+    - 1. Introduction: linear-algebra/1.md
+    - 2. Vector Spaces: linear-algebra/2.md
+    - 3. Subspaces: linear-algebra/3.md
+    - 4. Linear Combinations and Systems of Linear Equations: linear-algebra/4.md
+    - 5. Linear Dependence and Linear Independence: linear-algebra/5.md
+    - 6. Bases and Dimension: linear-algebra/6.md
+    - 7. Maximal Linearly Independent Subsets: linear-algebra/7.md
+  - Ch 2. Linear Transformations and Matrices:
+    - 8. Linear Transformations, Null spaces, and Ranges: linear-algebra/8.md
+    - 9. The Matrix Representation of a Linear Transformation: linear-algebra/9.md
+    - 10. Composition of Linear Transformations and Matrix Multiplication: linear-algebra/10.md
+    - 11. Invertibility and Isomorphisms: linear-algebra/11.md
+    - 12. The Change of Coordinate Matrix: linear-algebra/12.md
+    - 13. Dual Spaces: linear-algebra/13.md
+    - 14. Homogeneous Linear Differential Equations with Constant Coefficients: linear-algebra/14.md
+  - Ch 3. Elementary Matrix Operations and Systems of Linear Equations:
+    - 15. Elementary Matrix Operations and Elementary Matrices: linear-algebra/15.md
+    - 16. The Rank of a Matrix and Matrix Inverses: linear-algebra/16.md
+    - 17. Systems of Linear Equations - Theoretical Aspects: linear-algebra/17.md
+    - 18. Systems of Linear Equations - Computational Aspects: linear-algebra/18.md
+  - Ch 4. Determinants:
+    - 19. Determinants of Order 2: linear-algebra/19.md
+    - 20. Determinants of Order n: linear-algebra/20.md
+    - 21. Properties of Determinants: linear-algebra/21.md
+    - 22. A Characterization of the Determinant: linear-algebra/22.md
+  - Ch 5. Diagonalization:
+    - 23. Eigenvalues and Eigenvectors: linear-algebra/23.md
+    - 24. Diagonalizability: linear-algebra/24.md
+    - 25. Matrix Limits and Markov Chains: linear-algebra/25.md
+    - 26. Invariant Subspaces and the Cayley-Hamliton Theorem: linear-algebra/26.md
+  - Ch 6. Inner Product Spaces:
+    - 27. Inner Products and Norms: linear-algebra/27.md
+    - 28. The Gram-Schmidt Orthogonalization Process and Orthogonal Complements: linear-algebra/28.md
+    - 29. The Adjoint of a Linear Operator: linear-algebra/29.md
+    - 30. Normal and Self-Adjoint Operators: linear-algebra/30.md
+    - 31. Unitary and Orthogonal Operators and Their Matrices: linear-algebra/31.md
+    - 32. Orthogonal Projections and the Spectral Theorem: linear-algebra/32.md
+- Abstract Algebra:
+  - abstract-algebra/index.md
+  - 0. Sets and Relations: abstract-algebra/0.md
+  - Ch 1. Groups and SubGroups:
+    - 1. Introduction and Examples: abstract-algebra/1.md
+    - 2. Binary Operations: abstract-algebra/2.md
+    - 3. Isomorphic Binary Structures: abstract-algebra/3.md
+    - 4. Groups: abstract-algebra/4.md
+    - 5. Subgroups: abstract-algebra/5.md
+    - 6. Cyclic Groups: abstract-algebra/6.md
+    - 7. Generating Sets and Cayley Digraphs: abstract-algebra/7.md
+  - Ch 2. Permutations, Cosets, and Direct Products:
+    - 8. Groups of Permutations: abstract-algebra/8.md
+    - 9. Orbits, Cycles, and the Alternating Groups: abstract-algebra/9.md
+    - 10. Cosets and the Theorem of Lagrange: abstract-algebra/10.md
+    - 11. Direct Products and Finitely Generated Abelian Groups: abstract-algebra/11.md
+    - 12. Plane Isometries: abstract-algebra/12.md
+  - Ch 3. Homomorphisms and Factor Groups:
+    - 13. Homomorphisms: abstract-algebra/13.md
+    - 14. Factor Groups: abstract-algebra/14.md
+    - 15. Factor-Group Computations and Simple Groups: abstract-algebra/15.md
+    - 16. Group Action on a Set: abstract-algebra/16.md
+    - 17. Applications of G-Sets to Counting: abstract-algebra/17.md
+  - Ch 4. Rings and Fields:
+    - 18. Rings and Fields: abstract-algebra/18.md
+    - 19. Integral Domains: abstract-algebra/19.md
+    - 20. Fermat's and Euler's Theorem: abstract-algebra/20.md
+    - 21. The Field of Quotients of an Integral Domain: abstract-algebra/21.md
+    - 22. Rings of Polynomials: abstract-algebra/22.md
+    - 23. Factorization of Polynomials over a Field: abstract-algebra/23.md
+    - 24. Noncommutative Examples: abstract-algebra/24.md
+    - 25. Ordered Rings and Fields: abstract-algebra/25.md
+- Topology:
+  - topology/index.md
+  - Ch 1. Set Theory and Logic:
+    - 1. Fundamental Concepts: topology/1.md
+    - 2. Functions: topology/2.md
+    - 3. Relations: topology/3.md
+    - 4. The Integers and the Real Numbers: topology/4.md
+    - 5. Cartesian Products: topology/5.md
+    - 6. Finite Sets: topology/6.md
+  - Ch 2. Topological Spaces and Continuous Functions:
+    - 12. Topological Spaces: topology/12.md
+    - 13. Basis for a Topology: topology/13.md
+    - 14. The Order Topology: topology/14.md
+    - 15. The Product Topology on X ⨯ Y: topology/15.md
+    - 16. The Subspace Topology: topology/16.md
+    - 17. Closed Sets and Limit Points: topology/17.md
+    - 18. Continuous Functions: topology/18.md
+    - 19. The Product Topology: topology/19.md
+    - 20. The Metric Topology: topology/20.md
+    - 21. The Metric Topology (continued): topology/21.md
+    - 22. The Quotient Topology: topology/22.md
+  - Ch 3. Connectedness and Compactness:
+    - 23. Connected Spaces: topology/23.md
+    - 24. Connected Subspaces of the Real Line: topology/24.md
+    - 25. Components and Local Connectedness: topology/25.md
+    - 26. Compact Spaces: topology/26.md
+    - 27. Compact Subspaces of the Real Line: topology/27.md
+    - 28. Limit Point Compactness: topology/28.md
+    - 29. Local Compactness: topology/29.md
+docs_dir: /home/arnold/arnold/github/notes-helper/backend/preview/docs
+site_dir: /home/arnold/arnold/github/notes-helper/backend/preview/site

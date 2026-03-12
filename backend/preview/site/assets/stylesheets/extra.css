@@ -1,0 +1,172 @@
+.md-typeset .admonition {
+  font-size: 90%;
+}
+li {
+}
+.md-typeset {
+  font-size: .72rem;
+}
+.md-typeset div.arithmatex {
+  overflow: initial;
+}
+.md-typeset code {
+  font-size: 100%;
+}
+table.highlighttable {
+  font-size: .95em
+}
+.highlighttable .linenos {
+  font-size: 100%;
+}
+
+
+img.center {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.center-block {
+  text-align: center;
+}
+
+.center-block img {
+  display: block;
+  margin: 0 auto;
+}
+
+:root {
+  --md-admonition-icon--theorem: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 6a6 6 0 0 1 6 6c0 2.22-1.21 4.16-3 5.2V19a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-1.8c-1.79-1.04-3-2.98-3-5.2a6 6 0 0 1 6-6m2 15v1a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-1h4m6-10h3v2h-3v-2M1 11h3v2H1v-2M13 1v3h-2V1h2M4.92 3.5l2.13 2.14-1.42 1.41L3.5 4.93 4.92 3.5m12.03 2.13 2.12-2.13 1.43 1.43-2.13 2.12-1.42-1.42Z"/></svg>');
+  --md-admonition-icon--concept: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 6a6 6 0 0 1 6 6c0 2.22-1.21 4.16-3 5.2V19a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-1.8c-1.79-1.04-3-2.98-3-5.2a6 6 0 0 1 6-6m2 15v1a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-1h4m6-10h3v2h-3v-2M1 11h3v2H1v-2M13 1v3h-2V1h2M4.92 3.5l2.13 2.14-1.42 1.41L3.5 4.93 4.92 3.5m12.03 2.13 2.12-2.13 1.43 1.43-2.13 2.12-1.42-1.42Z"/></svg>');
+  --md-admonition-icon--definition: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.4.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M96 0C43 0 0 43 0 96v320c0 53 43 96 96 96h320c17.7 0 32-14.3 32-32s-14.3-32-32-32v-64c17.7 0 32-14.3 32-32V32c0-17.7-14.3-32-32-32H96zm0 384h256v64H96c-17.7 0-32-14.3-32-32s14.3-32 32-32zm32-240c0-8.8 7.2-16 16-16h192c8.8 0 16 7.2 16 16s-7.2 16-16 16H144c-8.8 0-16-7.2-16-16zm16 48h192c8.8 0 16 7.2 16 16s-7.2 16-16 16H144c-8.8 0-16-7.2-16-16s7.2-16 16-16z"/></svg>');
+  --md-admonition-icon--proof: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 9H7V7h10m0 6H7v-2h10m-3 6H7v-2h7M12 3a1 1 0 0 1 1 1 1 1 0 0 1-1 1 1 1 0 0 1-1-1 1 1 0 0 1 1-1m7 0h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2Z"/></svg>');
+  --md-admonition-icon--example: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--!Font Awesome Free 6.5.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.--><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352a144 144 0 1 0 0-288 144 144 0 1 0 0 288z"/></svg>');;
+  --md-admonition-icon--exercise: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.4.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M64 32C64 14.3 49.7 0 32 0S0 14.3 0 32v448c0 17.7 14.3 32 32 32s32-14.3 32-32V352l64.3-16.1c41.1-10.3 84.6-5.5 122.5 13.4 44.2 22.1 95.5 24.8 141.7 7.4l34.7-13c12.5-4.7 20.8-16.6 20.8-30V66.1c0-23-24.2-38-44.8-27.7l-9.6 4.8c-46.3 23.2-100.8 23.2-147.1 0-35.1-17.6-75.4-22-113.5-12.5L64 48V32z"/></svg>');
+}
+
+.md-typeset .admonition.proof,
+.md-typeset details.proof {
+  border-color: rgb(0, 176, 255);
+  text-align: left;
+}
+.md-typeset .proof > .admonition-title,
+.md-typeset .proof > summary {
+  text-align: left;
+  background-color: rgba(0, 176, 255, 0.1);
+}
+.md-typeset .proof > .admonition-title::before,
+.md-typeset .proof > summary::before {
+  background-color: rgb(0, 176, 255);
+  -webkit-mask-image: var(--md-admonition-icon--proof);
+          mask-image: var(--md-admonition-icon--proof);
+}
+
+.md-typeset .admonition.theorem,
+.md-typeset details.theorem {
+  border-color: rgb(68, 138, 255);
+  text-align: left;
+}
+.md-typeset .theorem > .admonition-title,
+.md-typeset .theorem > summary {
+  text-align: left;
+  background-color: rgba(68, 138, 255, 0.1);
+}
+.md-typeset .theorem > .admonition-title::before,
+.md-typeset .theorem > summary::before {
+  background-color: rgb(68, 138, 255);
+  -webkit-mask-image: var(--md-admonition-icon--theorem);
+          mask-image: var(--md-admonition-icon--theorem);
+}
+
+.md-typeset .admonition.corollary,
+.md-typeset details.corollary {
+  border-color: rgb(68, 138, 255);
+  text-align: left;
+}
+.md-typeset .corollary > .admonition-title,
+.md-typeset .corollary > summary {
+  text-align: left;
+  background-color: rgba(68, 138, 255, 0.1);
+}
+.md-typeset .corollary > .admonition-title::before,
+.md-typeset .corollary > summary::before {
+  background-color: rgb(68, 138, 255);
+  -webkit-mask-image: var(--md-admonition-icon--theorem);
+          mask-image: var(--md-admonition-icon--theorem);
+}
+
+.md-typeset .admonition.concept,
+.md-typeset details.concept {
+  border-color: rgb(68, 138, 255);
+  text-align: left;
+}
+.md-typeset .concept > .admonition-title,
+.md-typeset .concept > summary {
+  text-align: left;
+  background-color: rgba(68, 138, 255, 0.1);
+}
+.md-typeset .concept > .admonition-title::before,
+.md-typeset .concept > summary::before {
+  background-color: rgb(68, 138, 255);
+  -webkit-mask-image: var(--md-admonition-icon--concept);
+          mask-image: var(--md-admonition-icon--concept);
+}
+
+.md-typeset .admonition.definition,
+.md-typeset details.definition {
+  border-color: rgb(255, 135, 23);
+  text-align: left;
+}
+.md-typeset .definition > .admonition-title,
+.md-typeset .definition > summary {
+  text-align: left;
+  background-color: rgba(255, 135, 23, 0.1);
+}
+.md-typeset .definition > .admonition-title::before,
+.md-typeset .definition > summary::before {
+  background-color: rgb(255, 135, 23);
+  -webkit-mask-image: var(--md-admonition-icon--definition);
+          mask-image: var(--md-admonition-icon--definition);
+}
+
+.md-typeset .admonition.example,
+.md-typeset details.example {
+  border-color: rgb(174, 0, 255);
+  text-align: left;
+}
+.md-typeset .example > .admonition-title,
+.md-typeset .example > summary {
+  text-align: left;
+  background-color: rgba(174, 0, 255, 0.1);
+}
+.md-typeset .example > .admonition-title::before,
+.md-typeset .example > summary::before {
+  background-color: rgb(174, 0, 255);
+  -webkit-mask-image: var(--md-admonition-icon--example);
+          mask-image: var(--md-admonition-icon--example);
+}
+
+.md-typeset .admonition.exercise,
+.md-typeset details.exercise {
+  border-color: rgb(255, 242, 0);
+  text-align: left;
+}
+.md-typeset .exercise > .admonition-title,
+.md-typeset .exercise > summary {
+  text-align: left;
+  background-color: rgb(255, 242, 0, 0.1);
+}
+.md-typeset .exercise > .admonition-title::before,
+.md-typeset .exercise > summary::before {
+  background-color: rgb(255, 242, 0);
+  -webkit-mask-image: var(--md-admonition-icon--exercise);
+          mask-image: var(--md-admonition-icon--exercise);
+}
+
+@media print {
+  /* Adjusts positioning of admonition icon */
+  .md-typeset :is(.admonition-title,summary):before {
+    top: 0.6rem;
+    left: 0.6rem;
+  }
+}

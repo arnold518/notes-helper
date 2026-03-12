@@ -1,0 +1,16 @@
+{
+  "agent": {
+    "provider": "codex"
+  },
+  "codex": {
+    "model": "gpt-5.4",
+    "reasoning_effort": "high"
+  },
+  "generation": {
+    "auto_style_examples": true,
+    "max_example_files": 4,
+    "max_example_file_bytes": 300000,
+    "max_example_snippet_chars": 2000,
+    "search_depth": 3
+  }
+}
