@@ -8,6 +8,7 @@ interface Props {
 
 export default function Home({ onOpenProject }: Props) {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
+  const [title, setTitle] = useState("");
   const [blueprintPath, setBlueprintPath] = useState("");
   const [outputPath, setOutputPath] = useState("");
   const [mappingPath, setMappingPath] = useState("");
@@ -24,6 +25,7 @@ export default function Home({ onOpenProject }: Props) {
     setError(null);
     try {
       const project = await api.createProject({
+        title: title || undefined,
         blueprintPath: blueprintPath || undefined,
         outputPath: outputPath || undefined,
         mappingPath: mappingPath || undefined,
@@ -44,6 +46,15 @@ export default function Home({ onOpenProject }: Props) {
       <section className="home-section">
         <h2>Create New Project</h2>
         <form onSubmit={handleCreate} className="home-form">
+          <div className="form-field">
+            <label>Project name (optional)</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Linear Algebra 2.1"
+            />
+          </div>
           <div className="form-field">
             <label>Blueprint path (optional)</label>
             <input

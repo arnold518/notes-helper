@@ -47,6 +47,7 @@ class Project(BaseModel):
 
 
 class CreateProjectRequest(BaseModel):
+    title: str = ""
     blueprintPath: str = ""
     mkdocsRoot: str = ""
     outputPath: str = ""

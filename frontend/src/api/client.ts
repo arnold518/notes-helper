@@ -25,6 +25,7 @@ export const api = {
     req("/api/projects"),
 
   createProject: (body: {
+    title?: string;
     blueprintPath?: string;
     mkdocsRoot?: string;
     outputPath?: string;

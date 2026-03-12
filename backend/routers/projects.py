@@ -587,7 +587,7 @@ def create_project(req: CreateProjectRequest) -> Project:
 
     now = datetime.now(timezone.utc).isoformat()
     project_id = uuid.uuid4().hex[:12]
-    title = "Untitled"
+    title = req.title.strip() or "Untitled"
     items: list[Item] = []
     output_path = (req.outputPath or "").strip()
     if output_path:
@@ -609,7 +609,8 @@ def create_project(req: CreateProjectRequest) -> Project:
                 admonition_types = [t["type"] for t in get_admonition_types(mkdocs_root)]
             except Exception:
                 pass
-        title, items = parse_blueprint(blueprint_path, admonition_types=admonition_types)
+        parsed_title, items = parse_blueprint(blueprint_path, admonition_types=admonition_types)
+        title = parsed_title or title
         blueprint_path = os.path.abspath(blueprint_path)
     else:
         blueprint_path = ""
