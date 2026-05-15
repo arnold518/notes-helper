@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 AgentProvider = Literal["claude", "codex"]
@@ -14,6 +14,8 @@ AgentProvider = Literal["claude", "codex"]
 
 class AgentRuntimeConfig(BaseModel):
     provider: AgentProvider = "claude"
+    max_concurrency: int = Field(default=4, ge=1, le=32)
+    worker_count: int = Field(default=4, ge=1, le=32)
 
 
 class CodexRuntimeConfig(BaseModel):

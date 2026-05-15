@@ -1,22 +1,22 @@
 import { useState, useEffect } from "react";
 import { api } from "../api/client";
-import type { ProjectSummary } from "../types/project";
+import type { Subject } from "../types/project";
 
 interface Props {
-  onOpenProject: (id: string) => void;
+  onOpenSubject: (id: string) => void;
 }
 
-export default function Home({ onOpenProject }: Props) {
-  const [projects, setProjects] = useState<ProjectSummary[]>([]);
-  const [title, setTitle] = useState("");
-  const [blueprintPath, setBlueprintPath] = useState("");
-  const [outputPath, setOutputPath] = useState("");
-  const [mappingPath, setMappingPath] = useState("");
+export default function Home({ onOpenSubject }: Props) {
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [name, setName] = useState("");
+  const [titlePrefix, setTitlePrefix] = useState("");
+  const [mkdocsRoot, setMkdocsRoot] = useState("");
+  const [docsDir, setDocsDir] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.listProjects().then(setProjects).catch(console.error);
+    api.listSubjects().then(setSubjects).catch(console.error);
   }, []);
 
   async function handleCreate(e: React.FormEvent) {
@@ -24,13 +24,13 @@ export default function Home({ onOpenProject }: Props) {
     setCreating(true);
     setError(null);
     try {
-      const project = await api.createProject({
-        title: title || undefined,
-        blueprintPath: blueprintPath || undefined,
-        outputPath: outputPath || undefined,
-        mappingPath: mappingPath || undefined,
+      const subject = await api.createSubject({
+        name: name || undefined,
+        titlePrefix: titlePrefix || undefined,
+        mkdocsRoot: mkdocsRoot || undefined,
+        docsDir: docsDir || undefined,
       });
-      onOpenProject(project.id);
+      onOpenSubject(subject.id);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -41,63 +41,63 @@ export default function Home({ onOpenProject }: Props) {
   return (
     <div className="home-page">
       <h1>Notes Helper</h1>
-      <p className="home-subtitle">AI-powered blog authoring tool for MkDocs Material</p>
+      <p className="home-subtitle">Select a subject to manage its note projects.</p>
 
       <section className="home-section">
-        <h2>Create New Project</h2>
+        <h2>Create Subject</h2>
         <form onSubmit={handleCreate} className="home-form">
           <div className="form-field">
-            <label>Project name (optional)</label>
+            <label>Subject name</label>
             <input
               type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Linear Algebra 2.1"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Linear Algebra"
             />
           </div>
           <div className="form-field">
-            <label>Blueprint path (optional)</label>
+            <label>Title prefix (optional)</label>
             <input
               type="text"
-              value={blueprintPath}
-              onChange={(e) => setBlueprintPath(e.target.value)}
-              placeholder="/path/to/blueprint.md"
+              value={titlePrefix}
+              onChange={(e) => setTitlePrefix(e.target.value)}
+              placeholder="e.g. QCQI"
             />
           </div>
           <div className="form-field">
-            <label>Output file path</label>
+            <label>MkDocs root (optional)</label>
             <input
               type="text"
-              value={outputPath}
-              onChange={(e) => setOutputPath(e.target.value)}
-              placeholder="/home/arnold/arnold/github/math-notes/docs/linear-algebra/4.md"
+              value={mkdocsRoot}
+              onChange={(e) => setMkdocsRoot(e.target.value)}
+              placeholder="/path/to/mkdocs/root"
             />
           </div>
           <div className="form-field">
-            <label>Numbering map path (optional)</label>
+            <label>Docs directory (optional)</label>
             <input
               type="text"
-              value={mappingPath}
-              onChange={(e) => setMappingPath(e.target.value)}
-              placeholder="/home/arnold/arnold/github/math-notes/ORIGINAL_TO_NOTES_NUMBERING_MAP.md"
+              value={docsDir}
+              onChange={(e) => setDocsDir(e.target.value)}
+              placeholder="/path/to/mkdocs/docs/topic"
             />
           </div>
           {error && <p className="form-error">{error}</p>}
           <button type="submit" className="btn-primary" disabled={creating}>
-            {creating ? "Creating…" : "Create Project"}
+            {creating ? "Creating…" : "Create Subject"}
           </button>
         </form>
       </section>
 
-      {projects.length > 0 && (
+      {subjects.length > 0 && (
         <section className="home-section">
-          <h2>Existing Projects</h2>
+          <h2>Subjects</h2>
           <ul className="project-list">
-            {projects.map((p) => (
-              <li key={p.id} className="project-list-item" onClick={() => onOpenProject(p.id)}>
-                <span className="project-title">{p.title}</span>
+            {subjects.map((subject) => (
+              <li key={subject.id} className="project-list-item" onClick={() => onOpenSubject(subject.id)}>
+                <span className="project-title">{subject.name}</span>
                 <span className="project-meta">
-                  Updated {new Date(p.updatedAt).toLocaleDateString()}
+                  {subject.projectCount} projects
                 </span>
               </li>
             ))}

@@ -1,0 +1,21 @@
+{
+  "id": "linear-algebra",
+  "name": "Linear Algebra",
+  "titlePrefix": "Linear Algebra",
+  "mkdocsRoot": "/home/arnold/arnold/github/math-notes",
+  "docsDir": "/home/arnold/arnold/github/math-notes/docs/linear-algebra",
+  "blueprintDir": "",
+  "mappingPath": "/home/arnold/arnold/github/math-notes/docs/linear-algebra/mapping.md",
+  "references": [
+    {
+      "id": "7a8190ca",
+      "name": "source_part1.md",
+      "path": "/home/arnold/arnold/github/math-notes/docs/linear-algebra/Stephen H. Friedberg, Arnold J. Insel, Lawrence E. Spence - Linear Algebra (Part 1) (1).md",
+      "originalPath": "/home/arnold/arnold/github/math-notes/docs/linear-algebra/Stephen H. Friedberg, Arnold J. Insel, Lawrence E. Spence - Linear Algebra (Part 1) (1).md",
+      "prepared": true
+    }
+  ],
+  "createdAt": "2026-05-15T00:00:00+00:00",
+  "updatedAt": "2026-05-15T00:00:00+00:00",
+  "projectCount": 27
+}

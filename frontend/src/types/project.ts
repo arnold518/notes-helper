@@ -13,6 +13,8 @@ export interface Item {
   status: EntryStatus;
   number: number;
   autonumber: boolean;
+  references: string[];
+  referencedBy: string[];
 }
 
 export interface ReferenceFile {
@@ -23,18 +25,31 @@ export interface ReferenceFile {
   prepared: boolean;
 }
 
+export interface Subject {
+  id: string;
+  name: string;
+  titlePrefix: string;
+  mkdocsRoot: string;
+  docsDir: string;
+  blueprintDir: string;
+  mappingPath: string;
+  references: ReferenceFile[];
+  createdAt: string;
+  updatedAt: string;
+  projectCount: number;
+}
+
 export interface Project {
   id: string;
+  subjectId: string;
   title: string;
   blueprintPath: string;
   references: ReferenceFile[];
-  markdownRulesPath: string;
   mkdocsRoot: string;
   outputPath: string;
   mappingPath: string;
   numberPrefix: string;
   syncedNumberPrefix: string;
-  examplesDir?: string;
   items: Item[];
   createdAt: string;
   updatedAt: string;
@@ -42,9 +57,12 @@ export interface Project {
 
 export interface ProjectSummary {
   id: string;
+  subjectId?: string;
   title: string;
   createdAt: string;
   updatedAt: string;
+  outputPath?: string;
+  itemCount?: number;
 }
 
 export interface JobResponse {
@@ -91,4 +109,20 @@ export interface ProjectSnippetsResponse {
   mkdocsRoot: string;
   snippetDir: string;
   snippets: VscodeSnippet[];
+}
+
+export interface AiConversationMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  status: "running" | "done" | "error";
+  createdAt: string;
+  updatedAt: string;
+  jobId: string;
+  changedFiles: string[];
+  error: string;
+}
+
+export interface AiConversationThread {
+  messages: AiConversationMessage[];
 }

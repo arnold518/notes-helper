@@ -3,8 +3,10 @@ import type {
   ProjectSummary,
   JobResponse,
   Item,
+  Subject,
   AiLogSummary,
   AiLogDetail,
+  AiConversationThread,
   ProjectSnippetsResponse,
 } from "../types/project";
 
@@ -21,6 +23,59 @@ async function req<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  listSubjects: (): Promise<Subject[]> =>
+    req("/api/subjects"),
+
+  createSubject: (body: {
+    name?: string;
+    titlePrefix?: string;
+    mkdocsRoot?: string;
+    docsDir?: string;
+    blueprintDir?: string;
+    mappingPath?: string;
+  }): Promise<Subject> =>
+    req("/api/subjects", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+
+  getSubject: (id: string): Promise<Subject> =>
+    req(`/api/subjects/${id}`),
+
+  saveSubject: (subject: Subject): Promise<Subject> =>
+    req(`/api/subjects/${subject.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(subject),
+    }),
+
+  getSubjectRules: (subjectId: string, kind: "match" | "generate" | "map"): Promise<{ kind: string; content: string }> =>
+    req(`/api/subjects/${subjectId}/rules/${kind}`),
+
+  putSubjectRules: (subjectId: string, kind: "match" | "generate" | "map", content: string): Promise<{ kind: string; content: string }> =>
+    req(`/api/subjects/${subjectId}/rules/${kind}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    }),
+
+  listSubjectProjects: (subjectId: string): Promise<ProjectSummary[]> =>
+    req(`/api/subjects/${subjectId}/projects`),
+
+  createSubjectProject: (subjectId: string, body: {
+    title?: string;
+    blueprintPath?: string;
+    mkdocsRoot?: string;
+    outputPath?: string;
+    mappingPath?: string;
+  }): Promise<Project> =>
+    req(`/api/subjects/${subjectId}/projects`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+
   listProjects: (): Promise<ProjectSummary[]> =>
     req("/api/projects"),
 
@@ -30,7 +85,6 @@ export const api = {
     mkdocsRoot?: string;
     outputPath?: string;
     mappingPath?: string;
-    examplesDir?: string;
   }): Promise<Project> =>
     req("/api/projects", {
       method: "POST",
@@ -130,6 +184,19 @@ export const api = {
   getAiLog: (projectId: string, logId: string): Promise<AiLogDetail> =>
     req(`/api/projects/${projectId}/ai-logs/${encodeURIComponent(logId)}`),
 
+  getAiConversation: (projectId: string): Promise<AiConversationThread> =>
+    req(`/api/projects/${projectId}/ai-conversation`),
+
+  startAiCommand: (
+    projectId: string,
+    body: { message: string }
+  ): Promise<{ job_id: string; user_message_id: string; assistant_message_id: string }> =>
+    req(`/api/projects/${projectId}/ai-command`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+
   getProjectSnippets: (projectId: string): Promise<ProjectSnippetsResponse> =>
     req(`/api/projects/${projectId}/vscode-snippets`),
 
@@ -150,16 +217,6 @@ export const api = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name }),
-    }),
-
-  getRules: (projectId: string, kind: "match" | "generate"): Promise<{ kind: string; content: string }> =>
-    req(`/api/projects/${projectId}/rules/${kind}`),
-
-  putRules: (projectId: string, kind: "match" | "generate", content: string): Promise<{ kind: string; content: string }> =>
-    req(`/api/projects/${projectId}/rules/${kind}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content }),
     }),
 
   getMkdocsConfig: (root: string): Promise<Array<{ type: string; color: string }>> =>

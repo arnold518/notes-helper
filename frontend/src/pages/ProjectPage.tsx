@@ -8,13 +8,14 @@ import ItemMetaBar from "../components/ItemMetaBar";
 import ReferencesView from "../components/ReferencesView";
 import type { PrepareJobState } from "../components/ReferencesView";
 import AiLogsView from "../components/AiLogsView";
+import AiConversationView from "../components/AiConversationView";
 import RunButton from "../components/RunButton";
 import FinalPreviewView from "../components/FinalPreviewView";
-import RulesView from "../components/RulesView";
 import MappingView from "../components/MappingView";
 
-type PanelTab = "excerpt" | "document";
-type ProjectView = "main" | "references" | "aiLogs" | "final" | "rules" | "map";
+type EditorPanelTab = "excerpt" | "document";
+type PreviewPanelTab = "excerpt" | "document" | "reference";
+type ProjectView = "main" | "references" | "ai" | "aiLogs" | "final" | "map";
 
 interface Props {
   projectId: string;
@@ -31,13 +32,17 @@ export default function ProjectPage({ projectId, onBack }: Props) {
   // Per-item job IDs (itemId → jobId)
   const [matchItemJobs, setMatchItemJobs] = useState<Record<string, string>>({});
   const [generateItemJobs, setGenerateItemJobs] = useState<Record<string, string>>({});
+  const [matchAllJobId, setMatchAllJobId] = useState<string | null>(null);
+  const [generateAllJobId, setGenerateAllJobId] = useState<string | null>(null);
+  const [syncMapAllJobId, setSyncMapAllJobId] = useState<string | null>(null);
   const [editExcerptJobId, setEditExcerptJobId] = useState<string | null>(null);
   const [editDocumentJobId, setEditDocumentJobId] = useState<string | null>(null);
   const [matchPrompt, setMatchPrompt] = useState("");
   const [generatePrompt, setGeneratePrompt] = useState("");
   const [docAutoPreviewKey, setDocAutoPreviewKey] = useState(0);
   const [finalPreviewKey, setFinalPreviewKey] = useState(0);
-  const [panelTab, setPanelTab] = useState<PanelTab>("excerpt");
+  const [editorTab, setEditorTab] = useState<EditorPanelTab>("excerpt");
+  const [previewTab, setPreviewTab] = useState<PreviewPanelTab>("excerpt");
   const [view, setView] = useState<ProjectView>("main");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
   const [prepareJobs, setPrepareJobs] = useState<Record<string, PrepareJobState>>({});
@@ -84,8 +89,9 @@ export default function ProjectPage({ projectId, onBack }: Props) {
     });
   }, [project]);
 
-  const matchRunning = Object.keys(matchItemJobs).length > 0;
-  const generateRunning = Object.keys(generateItemJobs).length > 0;
+  const matchRunning = Object.keys(matchItemJobs).length > 0 || !!matchAllJobId;
+  const generateRunning = Object.keys(generateItemJobs).length > 0 || !!generateAllJobId;
+  const syncMapRunning = !!syncMapAllJobId;
 
   const matchItemJobsRef = useRef(matchItemJobs);
   matchItemJobsRef.current = matchItemJobs;
@@ -208,10 +214,10 @@ export default function ProjectPage({ projectId, onBack }: Props) {
   }, [flushProjectSave]);
 
   useEffect(() => {
-    if (panelTab === "document") {
+    if (previewTab === "document" && selectedId) {
       setDocAutoPreviewKey((k) => k + 1);
     }
-  }, [panelTab]);
+  }, [previewTab, selectedId]);
 
   async function patchSelectedItem(patch: Partial<Item>) {
     if (!project || !selectedId) return;
@@ -234,6 +240,15 @@ export default function ProjectPage({ projectId, onBack }: Props) {
     const updated = { ...project, items };
     setProject(updated);
     scheduleSave(updated, field);
+  }
+
+  function appendToSelectedExcerpt(block: string) {
+    if (!selectedItem) return;
+    const nextExcerpt = selectedItem.excerpt.trimEnd()
+      ? `${selectedItem.excerpt.trimEnd()}\n\n---\n\n${block}`
+      : block;
+    setEditorTab("excerpt");
+    updateItem("excerpt", nextExcerpt);
   }
 
   async function handleInsertAfter(afterId: string) {
@@ -351,25 +366,37 @@ export default function ProjectPage({ projectId, onBack }: Props) {
           {saveStatus === "saving" ? "Saving…" : saveStatus === "unsaved" ? "Unsaved" : "Saved"}
         </div>
         <div className="toolbar-actions">
-          <button
-            className="btn-primary"
-            disabled={matchRunning}
-            onClick={() => (projectRef.current?.items ?? []).forEach((it) => dispatchMatch(it.id, matchPrompt))}
-          >
-            {matchRunning ? "Matching…" : "Match All ▶"}
-          </button>
-          <button
-            className="btn-primary"
-            disabled={generateRunning}
-            onClick={() => (projectRef.current?.items ?? []).forEach((it) => dispatchGenerate(it.id, generatePrompt))}
-          >
-            {generateRunning ? "Generating…" : "Generate All ▶"}
-          </button>
+          <RunButton
+            projectId={project.id}
+            action="match"
+            label="Match All ▶"
+            activeJobId={matchAllJobId}
+            userPrompt={matchPrompt}
+            onJobStart={setMatchAllJobId}
+            onJobFinish={() => setMatchAllJobId(null)}
+            disabled={generateRunning || syncMapRunning}
+            onDone={setProject}
+          />
+          <RunButton
+            projectId={project.id}
+            action="generate"
+            label="Generate All ▶"
+            activeJobId={generateAllJobId}
+            userPrompt={generatePrompt}
+            onJobStart={setGenerateAllJobId}
+            onJobFinish={() => setGenerateAllJobId(null)}
+            disabled={matchRunning || syncMapRunning}
+            onDone={setProject}
+          />
           {project.mappingPath && unsyncedCount > 0 && (
             <RunButton
               projectId={project.id}
               action="sync-map-all"
               label={`Sync Map (${unsyncedCount}) ⟳`}
+              activeJobId={syncMapAllJobId}
+              onJobStart={setSyncMapAllJobId}
+              onJobFinish={() => setSyncMapAllJobId(null)}
+              disabled={matchRunning || generateRunning}
               onDone={setProject}
             />
           )}
@@ -388,16 +415,16 @@ export default function ProjectPage({ projectId, onBack }: Props) {
             </button>
           )}
           <button
+            className={view === "ai" ? "btn-primary" : "btn-secondary"}
+            onClick={() => setView((v) => v === "ai" ? "main" : "ai")}
+          >
+            AI
+          </button>
+          <button
             className={view === "aiLogs" ? "btn-primary" : "btn-secondary"}
             onClick={() => setView((v) => v === "aiLogs" ? "main" : "aiLogs")}
           >
             AI Logs
-          </button>
-          <button
-            className={view === "rules" ? "btn-primary" : "btn-secondary"}
-            onClick={() => setView((v) => v === "rules" ? "main" : "rules")}
-          >
-            Rules
           </button>
           <button
             className={view === "final" ? "btn-primary" : "btn-secondary"}
@@ -418,10 +445,15 @@ export default function ProjectPage({ projectId, onBack }: Props) {
             prepareJobs={prepareJobs}
             onPrepareJobsChange={setPrepareJobs}
           />
+        ) : view === "ai" ? (
+          <AiConversationView
+            projectId={project.id}
+            onProjectMaybeChanged={() => {
+              api.getProject(project.id).then(setProject).catch(() => {});
+            }}
+          />
         ) : view === "aiLogs" ? (
           <AiLogsView projectId={project.id} />
-        ) : view === "rules" ? (
-          <RulesView projectId={project.id} />
         ) : view === "map" ? (
           <MappingView mappingPath={project.mappingPath} projectId={project.id} />
         ) : view === "final" ? (
@@ -462,8 +494,8 @@ export default function ProjectPage({ projectId, onBack }: Props) {
                 <CodingPanel
                   item={selectedItem}
                   project={project}
-                  activeTab={panelTab}
-                  onTabChange={setPanelTab}
+                  activeTab={editorTab}
+                  onTabChange={setEditorTab}
                   matchItemJobId={selectedItem ? (matchItemJobs[selectedItem.id] ?? null) : null}
                   editExcerptJobId={editExcerptJobId}
                   generateItemJobId={selectedItem ? (generateItemJobs[selectedItem.id] ?? null) : null}
@@ -486,9 +518,11 @@ export default function ProjectPage({ projectId, onBack }: Props) {
                 <PreviewPanel
                   item={selectedItem}
                   project={project}
-                  activeTab={panelTab}
-                  onTabChange={setPanelTab}
+                  activeTab={previewTab}
+                  onTabChange={setPreviewTab}
                   autoPreviewKey={docAutoPreviewKey}
+                  onOpenReferences={() => setView("references")}
+                  onAppendToExcerpt={appendToSelectedExcerpt}
                 />
               </div>
             </div>

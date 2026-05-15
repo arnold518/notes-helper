@@ -4,7 +4,7 @@ import { autocompletion, snippet } from "@codemirror/autocomplete";
 import { indentUnit } from "@codemirror/language";
 import { markdown } from "@codemirror/lang-markdown";
 import { oneDark } from "@codemirror/theme-one-dark";
-import { RangeSetBuilder } from "@codemirror/state";
+import { EditorState, RangeSetBuilder } from "@codemirror/state";
 import { Prec } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView, ViewPlugin, type ViewUpdate, keymap } from "@codemirror/view";
 import {
@@ -21,6 +21,8 @@ interface Props {
   height?: string;
   placeholder?: string;
   projectId?: string;
+  editable?: boolean;
+  onLineSelectionChange?: (selection: { fromLine: number; toLine: number; text: string } | null) => void;
 }
 
 const TAB_WIDTH = 4;
@@ -84,7 +86,15 @@ const wrapIndentTheme = EditorView.baseTheme({
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function MarkdownEditor({ value, onChange, height = "150px", placeholder, projectId }: Props) {
+export default function MarkdownEditor({
+  value,
+  onChange,
+  height = "150px",
+  placeholder,
+  projectId,
+  editable = true,
+  onLineSelectionChange,
+}: Props) {
   const [workspaceSnippets, setWorkspaceSnippets] = useState<VscodeSnippet[]>([]);
 
   useEffect(() => {
@@ -130,12 +140,14 @@ export default function MarkdownEditor({ value, onChange, height = "150px", plac
       markdown(),
       indentUnit.of(" ".repeat(TAB_WIDTH)),
       EditorView.lineWrapping,
+      EditorState.readOnly.of(!editable),
+      EditorView.editable.of(editable),
       wrapIndentTheme,
       wrapIndentPlugin,
       tabExpandExtension,
       autocompletion({ override: [snippetSource], activateOnTyping: true }),
     ],
-    [snippetSource, tabExpandExtension],
+    [editable, snippetSource, tabExpandExtension],
   );
 
   return (
@@ -146,6 +158,24 @@ export default function MarkdownEditor({ value, onChange, height = "150px", plac
       extensions={extensions}
       theme={oneDark}
       onChange={onChange}
+      onUpdate={(viewUpdate) => {
+        if (!onLineSelectionChange) return;
+        if (!(viewUpdate.selectionSet || viewUpdate.docChanged)) return;
+        const selection = viewUpdate.state.selection.main;
+        if (selection.empty) {
+          onLineSelectionChange(null);
+          return;
+        }
+
+        const lastPos = selection.to > selection.from ? selection.to - 1 : selection.to;
+        const fromLine = viewUpdate.state.doc.lineAt(selection.from).number;
+        const toLine = viewUpdate.state.doc.lineAt(lastPos).number;
+        const lines: string[] = [];
+        for (let lineNo = fromLine; lineNo <= toLine; lineNo += 1) {
+          lines.push(viewUpdate.state.doc.line(lineNo).text);
+        }
+        onLineSelectionChange({ fromLine, toLine, text: lines.join("\n") });
+      }}
       placeholder={placeholder}
       style={{ fontSize: 13, borderRadius: 4, overflow: "hidden" }}
     />

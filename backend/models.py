@@ -19,6 +19,8 @@ class Item(BaseModel):
     status: EntryStatus = "pending"
     number: int = 0
     autonumber: bool = True
+    references: list[str] = []    # item ids this document currently references
+    referencedBy: list[str] = []  # item ids whose documents currently reference this item
 
 
 class ReferenceFile(BaseModel):
@@ -29,16 +31,29 @@ class ReferenceFile(BaseModel):
     prepared: bool = False
 
 
+class Subject(BaseModel):
+    id: str
+    name: str
+    titlePrefix: str = ""
+    mkdocsRoot: str = ""
+    docsDir: str = ""
+    blueprintDir: str = ""
+    mappingPath: str = ""
+    references: list[ReferenceFile] = []
+    createdAt: str
+    updatedAt: str
+    projectCount: int = 0
+
+
 class Project(BaseModel):
     id: str
+    subjectId: str = ""
     title: str
     blueprintPath: str = ""
     references: list[ReferenceFile] = []
-    markdownRulesPath: str = ""
     mkdocsRoot: str = ""
     outputPath: str = ""
     mappingPath: str = ""
-    examplesDir: Optional[str] = None
     items: list[Item] = []
     numberPrefix: str = ""
     syncedNumberPrefix: str = ""  # numberPrefix at last successful map sync
@@ -52,7 +67,16 @@ class CreateProjectRequest(BaseModel):
     mkdocsRoot: str = ""
     outputPath: str = ""
     mappingPath: str = ""
-    examplesDir: Optional[str] = None
+
+
+class CreateSubjectRequest(BaseModel):
+    name: str = ""
+    titlePrefix: str = ""
+    mkdocsRoot: str = ""
+    docsDir: str = ""
+    blueprintDir: str = ""
+    mappingPath: str = ""
+    references: list[ReferenceFile] = []
 
 
 class MatchRequest(BaseModel):
@@ -74,6 +98,30 @@ class EditRequest(BaseModel):
     itemId: Optional[str] = None
     target: Literal["excerpt", "document"] = "excerpt"
     content: Optional[str] = None
+
+
+class AiCommandRequest(BaseModel):
+    message: str = ""
+
+
+ConversationRole = Literal["user", "assistant"]
+ConversationStatus = Literal["running", "done", "error"]
+
+
+class AiConversationMessage(BaseModel):
+    id: str
+    role: ConversationRole
+    content: str = ""
+    status: ConversationStatus = "done"
+    createdAt: str
+    updatedAt: str
+    jobId: str = ""
+    changedFiles: list[str] = []
+    error: str = ""
+
+
+class AiConversationThread(BaseModel):
+    messages: list[AiConversationMessage] = []
 
 
 class JobStatus(BaseModel):

@@ -12,6 +12,10 @@ from typing import Any
 PROJECTS_DIR = Path(os.environ.get("PROJECTS_DIR", Path(__file__).parent.parent / "projects"))
 MAX_TEXT_CHARS = 300_000
 _SAFE_LOG_ID = re.compile(r"^[A-Za-z0-9_.-]+$")
+_RETRY_LIMIT_RE = re.compile(
+    r"ERROR:\s*exceeded retry limit, last status: (?P<status>[^,\n]+), request id: (?P<request_id>[^\n]+)"
+)
+_ERROR_PREFIXES = ("ERROR:", "Error:", "fatal:", "Fatal:")
 
 
 def _project_logs_dir(project_id: str) -> Path:
@@ -27,6 +31,34 @@ def _truncate(text: str, limit: int = MAX_TEXT_CHARS) -> str:
         return text
     omitted = len(text) - limit
     return f"{text[:limit]}\n\n...[truncated {omitted} chars]..."
+
+
+def summarize_ai_error(payload: dict[str, Any]) -> str:
+    stderr = str(payload.get("stderr") or "")
+    raw_error = str(payload.get("error") or "")
+
+    retry_matches = list(_RETRY_LIMIT_RE.finditer(stderr))
+    if retry_matches:
+        match = retry_matches[-1]
+        status = match.group("status").strip()
+        request_id = match.group("request_id").strip()
+        return f"exceeded retry limit: {status} (request id: {request_id})"
+
+    lines = [line.strip() for line in stderr.splitlines() if line.strip()]
+    for line in reversed(lines):
+        if line.startswith(_ERROR_PREFIXES):
+            return line
+        lowered = line.lower()
+        if "too many requests" in lowered or "permission denied" in lowered or "timed out" in lowered:
+            return line
+        if line.startswith("Traceback") or lowered.startswith(("exception:", "runtimeerror:")):
+            return line
+
+    if raw_error:
+        return raw_error
+    if lines:
+        return lines[-1]
+    return ""
 
 
 def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
@@ -154,6 +186,7 @@ def list_ai_logs(project_id: str, limit: int = 100) -> list[dict[str, Any]]:
         try:
             raw = json.loads(path.read_text(encoding="utf-8"))
             meta = raw.get("meta") if isinstance(raw.get("meta"), dict) else {}
+            error_summary = summarize_ai_error(raw) if str(raw.get("status") or "") == "error" else ""
             out.append({
                 "id": str(raw.get("id") or path.stem),
                 "runType": str(raw.get("runType") or ""),
@@ -164,7 +197,7 @@ def list_ai_logs(project_id: str, limit: int = 100) -> list[dict[str, Any]]:
                 "startedAt": str(raw.get("startedAt") or ""),
                 "finishedAt": str(raw.get("finishedAt") or ""),
                 "durationMs": int(raw.get("durationMs") or 0),
-                "error": str(raw.get("error") or ""),
+                "error": error_summary,
                 "itemIds": meta.get("itemIds"),
                 "referencePath": meta.get("referencePath"),
             })
@@ -180,4 +213,10 @@ def read_ai_log(project_id: str, log_id: str) -> dict[str, Any]:
     path = _log_path(project_id, safe_id)
     if not path.exists():
         raise FileNotFoundError(f"Log not found: {log_id}")
-    return json.loads(path.read_text(encoding="utf-8"))
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    error_summary = summarize_ai_error(payload) if str(payload.get("status") or "") == "error" else ""
+    if error_summary:
+        payload["error"] = error_summary
+    elif "error" in payload:
+        payload["error"] = ""
+    return payload

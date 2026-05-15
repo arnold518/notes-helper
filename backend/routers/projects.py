@@ -10,59 +10,20 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
+from mapping_store import (
+    canonical_output_location,
+    delete_target_row,
+    item_reference_label,
+    output_location_candidates,
+    rename_target_ref,
+    sync_project_reverse_links,
+)
 from models import Project, CreateProjectRequest, Item, ReferenceFile
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 PROJECTS_DIR = Path(os.environ.get("PROJECTS_DIR", Path(__file__).parent.parent.parent / "projects"))
 PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
-
-_DEFAULT_MATCH_RULES = """\
-# Match Rules — Edit freely, these are loaded at runtime
-
-Extraction rules:
-1. Extract sentence-wise. Do NOT start or end a chunk in the middle of a sentence.
-2. When $$...$$ math appears inside a sentence, include the full surrounding sentence.
-3. Expand start/end lines as needed so each chunk contains complete sentences.
-4. Keep text verbatim from the source — no paraphrasing.
-5. If multiple chunks are needed for one item, include all of them.
-6. If a current excerpt is provided, build on it — add, remove, or replace chunks as instructed.
-7. For section headers, match only the relevant header.
-
-Output format for each excerpt file:
-- Format each chunk as: [filename line X~Y]\\n\\n{verbatim text}
-- Separate multiple chunks with: a blank line, then ---, then a blank line
-- Write backslashes as-is (e.g. \\sigma, \\begin{pmatrix}). Do not double-escape.
-"""
-
-_DEFAULT_GENERATE_RULES = """\
-# Generate Rules — Edit freely, these are loaded at runtime
-
-Writing rules:
-1. Use each item's excerpt as the ONLY factual source.
-2. Preserve mathematical meaning and notation from the excerpt exactly.
-3. Keep markdown valid for MkDocs Material.
-4. kind=admonition → output a valid admonition block using the item's type.
-5. kind=section → output a heading only, at the level implied by h1/h2/h3.
-6. kind=text → output regular markdown paragraph(s), no admonition wrapper.
-7. Style reference files are for tone/structure only — do not copy facts from them.
-8. If a current document is provided, you may build on it — revise, extend, or rewrite as instructed.
-9. Write backslashes as-is (e.g. \\sigma, \\begin{pmatrix}). Do not double-escape.
-"""
-
-_DEFAULT_MAP_RULES = """\
-# Map Rules — Edit freely, these are loaded at runtime
-
-Mapping rules:
-1. Read each item's excerpt to determine what it is called in the original textbook.
-2. The excerpt header [filename line X~Y] shows the current reference name; use the reference name mapping to find the original file path.
-3. Use the original file path as the section header in the mapping file: ## Reference: <original-path>
-4. Find or create a row where New ref = the item's new ref label and Location = the notes output file.
-5. Set Original ref to the item's identifier in the original text (e.g. "Theorem 2.3", "Definition 1", "Replacement Theorem", section title).
-6. Surround the Original ref value with ** for bold.
-7. If the excerpt has no identifiable original reference, omit the item from the map.
-8. Preserve all existing rows — only add or update rows for the given items.
-"""
 
 
 def _project_dir(project_id: str) -> Path:
@@ -270,20 +231,6 @@ def _collect_vscode_snippets(vscode_dir: Path) -> list[dict[str, str]]:
     return snippets
 
 
-def _ensure_rules_files(project_id: str) -> None:
-    project_root = _project_dir(project_id)
-    project_root.mkdir(parents=True, exist_ok=True)
-    match_rules = project_root / "match_rules.md"
-    generate_rules = project_root / "generate_rules.md"
-    map_rules = project_root / "map_rules.md"
-    if not match_rules.exists():
-        match_rules.write_text(_DEFAULT_MATCH_RULES, encoding="utf-8")
-    if not generate_rules.exists():
-        generate_rules.write_text(_DEFAULT_GENERATE_RULES, encoding="utf-8")
-    if not map_rules.exists():
-        map_rules.write_text(_DEFAULT_MAP_RULES, encoding="utf-8")
-
-
 def _copy_reference_to_project(project_id: str, source_path: Path, source_name: str | None = None) -> Path:
     refs_dir = _project_refs_dir(project_id)
     refs_dir.mkdir(parents=True, exist_ok=True)
@@ -292,6 +239,37 @@ def _copy_reference_to_project(project_id: str, source_path: Path, source_name: 
     dest = _unique_file_path(refs_dir, base_name)
     shutil.copyfile(source_path, dest)
     return dest.resolve()
+
+
+def _cleanup_removed_reference_file(
+    project_id: str,
+    removed_ref: ReferenceFile,
+    remaining_refs: list[ReferenceFile],
+) -> None:
+    raw_path = os.path.expanduser((removed_ref.path or "").strip())
+    if not raw_path:
+        return
+
+    ref_path = Path(raw_path)
+    refs_dir = _project_refs_dir(project_id)
+    if not _is_within(ref_path, refs_dir):
+        return
+
+    ref_resolved = ref_path.resolve(strict=False)
+    remaining_paths = {
+        str(Path(os.path.expanduser((ref.path or "").strip())).resolve(strict=False))
+        for ref in remaining_refs
+        if (ref.path or "").strip()
+    }
+    if str(ref_resolved) in remaining_paths:
+        return
+
+    if ref_path.exists() and ref_path.is_file():
+        ref_path.unlink()
+
+    prep_tmp = Path(str(ref_path) + ".prep.tmp")
+    if prep_tmp.exists() and prep_tmp.is_file():
+        prep_tmp.unlink()
 
 
 def _normalize_references(data: dict) -> dict:
@@ -339,9 +317,10 @@ def _migrate_project_data(data: dict) -> dict:
         else:
             data["references"] = []
     data.setdefault("references", [])
-    data.setdefault("markdownRulesPath", "")
+    data.pop("markdownRulesPath", None)
     data.setdefault("blueprintPath", "")
     data.setdefault("outputPath", "")
+    data.setdefault("subjectId", "")
     data = _normalize_references(data)
     data.pop("agent", None)
     data.pop("agentProvider", None)
@@ -424,40 +403,10 @@ def _load_project(project_id: str) -> Project:
     if migrated_from_legacy or localized_refs:
         _save_project(project, touch_updated=False)
 
-    _ensure_rules_files(project_id)
     return project
 
 
 import re as _re
-
-
-def _update_mapping_new_ref(path: str, old_ref: str, new_ref: str) -> None:
-    """Programmatically replace a 'New ref' cell value in the mapping file table."""
-    p = Path(os.path.expanduser(path))
-    if not p.exists():
-        return
-    text = p.read_text(encoding="utf-8")
-    text = text.replace(f"| **{old_ref}** |", f"| **{new_ref}** |")
-    text = text.replace(f"| {old_ref} |", f"| {new_ref} |")
-    p.write_text(text, encoding="utf-8")
-
-
-def _delete_mapping_row(path: str, new_ref: str, location: str) -> None:
-    """Remove a row from the mapping file table matching new_ref and location."""
-    p = Path(os.path.expanduser(path))
-    if not p.exists():
-        return
-    lines = p.read_text(encoding="utf-8").splitlines(keepends=True)
-    out: list[str] = []
-    for line in lines:
-        stripped = line.strip()
-        if stripped.startswith("|"):
-            has_ref = f"| **{new_ref}** |" in stripped or f"| {new_ref} |" in stripped
-            has_loc = f"`{location}`" in stripped or (location and location in stripped)
-            if has_ref and has_loc:
-                continue
-        out.append(line)
-    p.write_text("".join(out), encoding="utf-8")
 
 
 def _extract_prefix(project: Project) -> str:
@@ -469,57 +418,122 @@ def _extract_prefix(project: Project) -> str:
     return ""
 
 
-def _renumber_items(project: Project) -> None:
-    """Sequentially number admonitions; auto-update baked-in numbers in documents."""
-    new_prefix = _extract_prefix(project)
-    old_prefix = project.numberPrefix
+def _item_reference_label(item: Item, prefix: str) -> str:
+    return item_reference_label(item, prefix)
 
-    # When prefix changes, rewrite all existing document text first (using current numbers).
-    if old_prefix != new_prefix:
-        for item in project.items:
-            if item.kind != "admonition" or not item.document or item.number == 0:
+
+def _build_reference_graph(
+    project: Project,
+    *,
+    prefix: str,
+) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
+    label_to_item_id: dict[str, str] = {}
+    ambiguous_labels: set[str] = set()
+    for item in project.items:
+        label = _item_reference_label(item, prefix).strip()
+        if not label:
+            continue
+        if label in label_to_item_id:
+            ambiguous_labels.add(label)
+            continue
+        label_to_item_id[label] = item.id
+
+    for label in ambiguous_labels:
+        label_to_item_id.pop(label, None)
+
+    references: dict[str, list[str]] = {item.id: [] for item in project.items}
+    referenced_by: dict[str, list[str]] = {item.id: [] for item in project.items}
+
+    for item in project.items:
+        if not item.document:
+            continue
+        seen_targets: set[str] = set()
+        for match in _re.finditer(r"\*\*(.+?)\*\*", item.document):
+            label = match.group(1).strip()
+            target_id = label_to_item_id.get(label)
+            if not target_id or target_id == item.id or target_id in seen_targets:
                 continue
-            n = item.number
-            cap_type = item.type.capitalize()
-            if old_prefix and new_prefix:
-                item.document = item.document.replace(f"{old_prefix}.{n}", f"{new_prefix}.{n}")
-            elif old_prefix and not new_prefix:
-                item.document = item.document.replace(f"{old_prefix}.{n}", f"{cap_type} {n}")
-            else:  # not old_prefix and new_prefix
-                item.document = _re.sub(
-                    rf'\b{_re.escape(cap_type)}\s+{n}\b',
-                    f"{new_prefix}.{n}",
-                    item.document
-                )
+            references[item.id].append(target_id)
+            referenced_by[target_id].append(item.id)
+            seen_targets.add(target_id)
 
+    return references, referenced_by
+
+
+def _apply_reference_graph(project: Project) -> None:
+    references, referenced_by = _build_reference_graph(project, prefix=project.numberPrefix)
+    for item in project.items:
+        item.references = references.get(item.id, [])
+        item.referencedBy = referenced_by.get(item.id, [])
+
+
+def _reference_snapshot(project: Project) -> tuple[dict[str, str], dict[str, list[str]]]:
+    prefix = project.numberPrefix or _extract_prefix(project)
+    labels = {
+        item.id: _item_reference_label(item, prefix)
+        for item in project.items
+    }
+    _, referenced_by = _build_reference_graph(project, prefix=prefix)
+    return labels, referenced_by
+
+
+def _rewrite_document_reference_label(document: str, old_ref: str, new_ref: str) -> str:
+    if not document or not old_ref or not new_ref or old_ref == new_ref:
+        return document
+    return document.replace(f"**{old_ref}**", f"**{new_ref}**")
+
+
+def _renumber_items(
+    project: Project,
+    *,
+    previous_reference_labels: dict[str, str] | None = None,
+    previous_referenced_by: dict[str, list[str]] | None = None,
+) -> None:
+    """Sequentially number admonitions and keep downstream references consistent."""
+    if previous_reference_labels is None or previous_referenced_by is None:
+        previous_reference_labels, previous_referenced_by = _reference_snapshot(project)
+
+    new_prefix = _extract_prefix(project)
     project.numberPrefix = new_prefix
 
-    # Renumber sequentially (autonumber items only); update document text when a number shifts.
     n = 1
     for item in project.items:
         if item.kind == "admonition":
             if item.autonumber:
-                old = item.number
                 item.number = n
-                if old != n and old != 0:
-                    cap_type = item.type.capitalize()
-                    if item.document:
-                        if new_prefix:
-                            item.document = item.document.replace(f"{new_prefix}.{old}", f"{new_prefix}.{n}")
-                        else:
-                            item.document = _re.sub(
-                                rf'\b{_re.escape(cap_type)}\s+{old}\b',
-                                f"{cap_type} {n}",
-                                item.document
-                            )
-                    if project.mappingPath:
-                        old_ref = f"{cap_type} {new_prefix}.{old}" if new_prefix else f"{cap_type} {old}"
-                        new_ref_label = f"{cap_type} {new_prefix}.{n}" if new_prefix else f"{cap_type} {n}"
-                        _update_mapping_new_ref(project.mappingPath, old_ref, new_ref_label)
                 n += 1
-            # manual items: leave item.number untouched
         else:
             item.number = 0
+
+    items_by_id = {item.id: item for item in project.items}
+    current_reference_labels = {
+        item.id: _item_reference_label(item, new_prefix)
+        for item in project.items
+    }
+
+    for item_id, old_ref in previous_reference_labels.items():
+        new_ref = current_reference_labels.get(item_id, "")
+        if not old_ref or not new_ref or old_ref == new_ref:
+            continue
+
+        item = items_by_id.get(item_id)
+        if item is not None and item.document:
+            item.document = item.document.replace(old_ref, new_ref)
+
+        for source_id in previous_referenced_by.get(item_id, []):
+            source_item = items_by_id.get(source_id)
+            if source_item is None or not source_item.document or source_id == item_id:
+                continue
+            source_item.document = _rewrite_document_reference_label(source_item.document, old_ref, new_ref)
+
+        if project.mappingPath:
+            rename_target_ref(
+                project.mappingPath,
+                canonical_output_location(project.outputPath, project.mkdocsRoot),
+                old_ref,
+                new_ref,
+                location_aliases=output_location_candidates(project.outputPath, project.mkdocsRoot),
+            )
 
 
 def _recompute_status(project: Project) -> None:
@@ -534,9 +548,22 @@ def _recompute_status(project: Project) -> None:
             item.status = "pending"
 
 
-def _save_project(project: Project, touch_updated: bool = True) -> None:
-    _renumber_items(project)
+def _save_project(
+    project: Project,
+    touch_updated: bool = True,
+    *,
+    previous_reference_labels: dict[str, str] | None = None,
+    previous_referenced_by: dict[str, list[str]] | None = None,
+) -> None:
+    _renumber_items(
+        project,
+        previous_reference_labels=previous_reference_labels,
+        previous_referenced_by=previous_referenced_by,
+    )
     _recompute_status(project)
+    _apply_reference_graph(project)
+    if project.mappingPath:
+        sync_project_reverse_links(project)
     if touch_updated:
         project.updatedAt = datetime.now(timezone.utc).isoformat()
     path = _project_path(project.id)
@@ -581,8 +608,29 @@ def list_projects() -> list[dict]:
     return projects
 
 
-@router.post("", status_code=201)
-def create_project(req: CreateProjectRequest) -> Project:
+def _clone_reference_defaults(references: list[ReferenceFile]) -> list[ReferenceFile]:
+    cloned: list[ReferenceFile] = []
+    for ref in references:
+        cloned.append(
+            ReferenceFile(
+                id=uuid.uuid4().hex[:8],
+                name=ref.name,
+                path=ref.path,
+                originalPath=ref.originalPath,
+                prepared=ref.prepared,
+            )
+        )
+    return cloned
+
+
+def _create_project(
+    req: CreateProjectRequest,
+    *,
+    subject_id: str = "",
+    default_mkdocs_root: str = "",
+    default_mapping_path: str = "",
+    default_references: list[ReferenceFile] | None = None,
+) -> Project:
     from blueprint_parser import parse_blueprint
 
     now = datetime.now(timezone.utc).isoformat()
@@ -592,7 +640,7 @@ def create_project(req: CreateProjectRequest) -> Project:
     output_path = (req.outputPath or "").strip()
     if output_path:
         output_path = os.path.abspath(os.path.expanduser(output_path))
-    mkdocs_root = (req.mkdocsRoot or "").strip()
+    mkdocs_root = (req.mkdocsRoot or default_mkdocs_root or "").strip()
     if not mkdocs_root and output_path:
         mkdocs_root = _infer_mkdocs_root_from_output_path(output_path)
     if mkdocs_root:
@@ -618,19 +666,25 @@ def create_project(req: CreateProjectRequest) -> Project:
 
     project = Project(
         id=project_id,
+        subjectId=subject_id,
         title=title,
         blueprintPath=blueprint_path,
-        references=[],
+        references=_clone_reference_defaults(default_references or []),
         mkdocsRoot=mkdocs_root,
         outputPath=output_path,
-        mappingPath=req.mappingPath or "",
-        examplesDir=req.examplesDir,
+        mappingPath=req.mappingPath or default_mapping_path or "",
         items=items,
         createdAt=now,
         updatedAt=now,
     )
+    _ensure_local_reference_files(project)
     _save_project(project)
     return project
+
+
+@router.post("", status_code=201)
+def create_project(req: CreateProjectRequest) -> Project:
+    return _create_project(req)
 
 
 @router.get("/{project_id}/vscode-snippets")
@@ -668,10 +722,15 @@ def get_project(project_id: str) -> Project:
 
 @router.put("/{project_id}")
 def update_project(project_id: str, body: Project) -> Project:
-    _load_project(project_id)
+    current = _load_project(project_id)
+    previous_reference_labels, previous_referenced_by = _reference_snapshot(current)
     body.id = project_id
     _ensure_local_reference_files(body)
-    _save_project(body)
+    _save_project(
+        body,
+        previous_reference_labels=previous_reference_labels,
+        previous_referenced_by=previous_referenced_by,
+    )
     return body
 
 
@@ -684,6 +743,7 @@ class InsertItemRequest(Item):
 @router.post("/{project_id}/items", status_code=201)
 def insert_item(project_id: str, body: dict) -> Project:
     project = _load_project(project_id)
+    previous_reference_labels, previous_referenced_by = _reference_snapshot(project)
     after_id = body.pop("afterId", None)
     # Generate id if not provided
     if "id" not in body or not body["id"]:
@@ -705,13 +765,18 @@ def insert_item(project_id: str, body: dict) -> Project:
     else:
         project.items.append(new_item)
 
-    _save_project(project)
+    _save_project(
+        project,
+        previous_reference_labels=previous_reference_labels,
+        previous_referenced_by=previous_referenced_by,
+    )
     return project
 
 
 @router.delete("/{project_id}/items/{item_id}")
 def delete_item(project_id: str, item_id: str) -> Project:
     project = _load_project(project_id)
+    previous_reference_labels, previous_referenced_by = _reference_snapshot(project)
     if project.mappingPath:
         item = next((it for it in project.items if it.id == item_id), None)
         if item is not None:
@@ -724,16 +789,25 @@ def delete_item(project_id: str, item_id: str) -> Project:
             else:
                 new_ref = ""
             if new_ref:
-                location = Path(os.path.expanduser(project.outputPath)).name if project.outputPath else ""
-                _delete_mapping_row(project.mappingPath, new_ref, location)
+                delete_target_row(
+                    project.mappingPath,
+                    canonical_output_location(project.outputPath, project.mkdocsRoot),
+                    new_ref,
+                    location_aliases=output_location_candidates(project.outputPath, project.mkdocsRoot),
+                )
     project.items = [it for it in project.items if it.id != item_id]
-    _save_project(project)
+    _save_project(
+        project,
+        previous_reference_labels=previous_reference_labels,
+        previous_referenced_by=previous_referenced_by,
+    )
     return project
 
 
 @router.patch("/{project_id}/items/{item_id}")
 def patch_item(project_id: str, item_id: str, body: dict) -> Project:
     project = _load_project(project_id)
+    previous_reference_labels, previous_referenced_by = _reference_snapshot(project)
     for i, it in enumerate(project.items):
         if it.id == item_id:
             data = it.model_dump()
@@ -745,7 +819,11 @@ def patch_item(project_id: str, item_id: str, body: dict) -> Project:
             break
     else:
         raise HTTPException(status_code=404, detail="Item not found")
-    _save_project(project)
+    _save_project(
+        project,
+        previous_reference_labels=previous_reference_labels,
+        previous_referenced_by=previous_referenced_by,
+    )
     return project
 
 
@@ -795,6 +873,10 @@ def add_reference(project_id: str, body: dict) -> Project:
 @router.delete("/{project_id}/references/{ref_id}")
 def remove_reference(project_id: str, ref_id: str) -> Project:
     project = _load_project(project_id)
+    removed_ref = next((r for r in project.references if r.id == ref_id), None)
+    if removed_ref is None:
+        raise HTTPException(status_code=404, detail="Reference not found")
     project.references = [r for r in project.references if r.id != ref_id]
     _save_project(project)
+    _cleanup_removed_reference_file(project_id, removed_ref, project.references)
     return project

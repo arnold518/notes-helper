@@ -1,0 +1,21 @@
+{
+  "id": "rl",
+  "name": "RL",
+  "titlePrefix": "RL",
+  "mkdocsRoot": "/home/arnold/arnold/github/ai-notes",
+  "docsDir": "/home/arnold/arnold/github/ai-notes/docs/rl",
+  "blueprintDir": "/home/arnold/arnold/github/ai-notes/docs/rl/blueprints",
+  "mappingPath": "/home/arnold/arnold/github/ai-notes/docs/rl/mapping.md",
+  "references": [
+    {
+      "id": "0c04dab2",
+      "name": "textbook.md",
+      "path": "/home/arnold/arnold/github/ai-notes/docs/rl/RLbook2020.md",
+      "originalPath": "/home/arnold/arnold/github/ai-notes/docs/rl/RLbook2020.md",
+      "prepared": true
+    }
+  ],
+  "createdAt": "2026-05-15T00:00:00+00:00",
+  "updatedAt": "2026-05-15T00:00:00+00:00",
+  "projectCount": 1
+}

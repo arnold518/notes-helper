@@ -11,8 +11,10 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
 from models import PreviewRequest
+from preview_config import build_preview_mkdocs_config
 from routers import projects as projects_router
 from routers import agent as agent_router
+from routers import subjects as subjects_router
 
 app = FastAPI(title="Notes Helper API")
 
@@ -38,6 +40,7 @@ app.add_middleware(
 
 app.include_router(projects_router.router)
 app.include_router(agent_router.router)
+app.include_router(subjects_router.router)
 
 
 @app.get("/api/file")
@@ -135,7 +138,7 @@ def _write_preview_mkdocs(preview_dir: Path, mkdocs_root: str) -> None:
         )
         return
 
-    config = yaml.safe_load(orig_yml.read_text())
+    config = yaml.safe_load(orig_yml.read_text(encoding="utf-8")) or {}
 
     # Resolve real docs_dir from the original config (default: "docs")
     real_docs_dir = src_root / config.get("docs_dir", "docs")
@@ -164,11 +167,16 @@ def _write_preview_mkdocs(preview_dir: Path, mkdocs_root: str) -> None:
         if custom_dir.exists():
             config["theme"]["custom_dir"] = str(custom_dir)
 
-    # Override docs_dir and site_dir to our preview paths (use absolute)
-    config["docs_dir"] = str(docs_dir)
-    config["site_dir"] = str(site_dir)
+    config = build_preview_mkdocs_config(
+        config,
+        docs_dir=docs_dir,
+        site_dir=site_dir,
+    )
 
-    (preview_dir / "mkdocs.yml").write_text(yaml.dump(config, allow_unicode=True, sort_keys=False))
+    (preview_dir / "mkdocs.yml").write_text(
+        yaml.dump(config, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
 
 
 # Mount static preview site

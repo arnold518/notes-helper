@@ -1,1 +1,3 @@
-projects/
+projects/*
+!projects/_subjects/
+!projects/_subjects/**

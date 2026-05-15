@@ -1,9 +1,11 @@
 {
   "agent": {
-    "provider": "codex"
+    "provider": "codex",
+    "max_concurrency": 4,
+    "worker_count": 4
   },
   "codex": {
-    "model": "gpt-5.4",
+    "model": "gpt-5.3-codex-spark",
     "reasoning_effort": "high"
   },
   "generation": {

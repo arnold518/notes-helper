@@ -1,0 +1,21 @@
+{
+  "id": "qcqi",
+  "name": "QCQI",
+  "titlePrefix": "QCQI",
+  "mkdocsRoot": "/home/arnold/arnold/github/ai-notes",
+  "docsDir": "/home/arnold/arnold/github/ai-notes/docs/qcqi",
+  "blueprintDir": "/home/arnold/arnold/github/ai-notes/docs/qcqi/blueprints",
+  "mappingPath": "/home/arnold/arnold/github/ai-notes/docs/qcqi/mapping.md",
+  "references": [
+    {
+      "id": "5438e7ff",
+      "name": "textbook.md",
+      "path": "/home/arnold/arnold/github/ai-notes/docs/qcqi/[NC2010]QCQI.md",
+      "originalPath": "/home/arnold/arnold/github/ai-notes/docs/qcqi/[NC2010]QCQI.md",
+      "prepared": true
+    }
+  ],
+  "createdAt": "2026-05-15T00:00:00+00:00",
+  "updatedAt": "2026-05-15T00:00:00+00:00",
+  "projectCount": 6
+}

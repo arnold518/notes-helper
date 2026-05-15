@@ -68,4 +68,5 @@ See `examples/` for sample blueprint, textbook, and output blog files.
 ## Prompts / Rules
 
 - Prompts can be found in `backend/agent_runner.py`.
-- Default rules can be found in `backend/routers/project.py`.
+- Rule defaults can be found in `backend/rules.py`.
+- Active rules are managed per subject under `projects/_subjects/*_rules.md`.
