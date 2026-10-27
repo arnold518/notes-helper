@@ -10,6 +10,7 @@ export interface Item {
   syncedExcerpt: string;
   syncedNumber: number;
   document: string;
+  syncedDocument: string;
   status: EntryStatus;
   number: number;
   autonumber: boolean;

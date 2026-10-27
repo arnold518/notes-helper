@@ -60,8 +60,29 @@ def test_deterministic_original_refs_preserve_multiple_equations() -> None:
     ], refs
 
 
+def test_deterministic_original_refs_drop_formula_fragments() -> None:
+    item = type(
+        "Item",
+        (),
+        {
+            "kind": "admonition",
+            "type": "theorem",
+            "content": "(r, s)=1, r|sm => r|m",
+            "excerpt": (
+                "[textbook.md line 199~215]\n\n"
+                "If $r$ and $s$ are relatively prime and if $r$ divides $s m$, "
+                "then $r$ must divide $m$."
+            ),
+        },
+    )()
+
+    refs = agent_runner._deterministic_original_refs(item, "Theorem 6.8")
+    assert refs == [], refs
+
+
 def run_tests() -> None:
     test_deterministic_original_refs_preserve_multiple_equations()
+    test_deterministic_original_refs_drop_formula_fragments()
     with TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
         source_doc = root / "refs" / "[NC2010]QCQI.md"

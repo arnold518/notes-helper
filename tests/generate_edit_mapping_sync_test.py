@@ -216,5 +216,78 @@ def run_tests() -> None:
     print("PASS: generate/edit mapping sync")
 
 
+def test_sync_all_creates_heading_rows_and_clears_pending_state(tmp_path, monkeypatch) -> None:
+    import ai_logs
+    from map_sync import unsynced_map_item_ids
+    from models import ReferenceFile
+
+    projects_dir = tmp_path / "projects"
+    monkeypatch.setattr(project_routes, "PROJECTS_DIR", projects_dir)
+    monkeypatch.setattr(agent_routes, "PROJECTS_DIR", projects_dir)
+    monkeypatch.setattr(ai_logs, "PROJECTS_DIR", projects_dir)
+    monkeypatch.setattr(agent_runner, "_rules_path", lambda *_: tmp_path / "map_rules.md")
+
+    async def unexpected_agent_call(*args, **kwargs):
+        raise AssertionError("Heading mapping should not need an external agent")
+
+    monkeypatch.setattr(agent_runner, "run_agent", unexpected_agent_call)
+    project = Project(
+        id="heading-sync",
+        title="Heading sync",
+        mkdocsRoot=str(tmp_path),
+        outputPath=str(tmp_path / "docs" / "notes" / "2.1.md"),
+        mappingPath=str(tmp_path / "mapping.md"),
+        references=[ReferenceFile(id="ref", name="book.md", path=str(tmp_path / "book.md"))],
+        items=[
+            Item(
+                kind="section",
+                id=f"h{level}",
+                type=f"h{level}",
+                content=f"2.1.{level} Heading",
+                excerpt=f"[book.md line 1~2]\n\nSource heading {level}" if level % 2 else "",
+                document=f"{'#' * level} 2.1.{level} Heading" if level % 2 == 0 else "",
+            )
+            for level in range(1, 7)
+        ],
+        createdAt="2026-09-17T00:00:00+00:00",
+        updatedAt="2026-09-17T00:00:00+00:00",
+    )
+    project_routes._save_project(project)
+
+    class QueuedTasks:
+        def __init__(self):
+            self.tasks = []
+
+        def add_task(self, func, *args, **kwargs):
+            self.tasks.append((func, args, kwargs))
+
+        async def run(self):
+            for func, args, kwargs in self.tasks:
+                await func(*args, **kwargs)
+
+    tasks = QueuedTasks()
+    response = agent_routes.start_sync_map_all(project.id, tasks)
+    assert len(tasks.tasks) == 1
+    asyncio.run(tasks.run())
+
+    job = agent_routes._jobs[response["job_id"]]
+    assert job["status"] == "done", job
+    assert job["error"] is None, job
+    assert job["result"] == [{"itemIds": [f"h{level}" for level in range(1, 7)]}]
+    rows = parse_mapping_file(project.mappingPath)
+    assert [row.new_ref for row in rows] == [f"§ 2.1.{level} Heading" for level in range(1, 7)]
+    assert all(row.location == "notes/2.1.md" for row in rows)
+    assert all(row.original_refs for row in rows[::2])
+
+    synced = project_routes._load_project(project.id)
+    assert unsynced_map_item_ids(synced) == []
+    assert all(item.syncedExcerpt == item.excerpt for item in synced.items)
+    assert all(item.syncedDocument == item.document for item in synced.items)
+    repeat_tasks = QueuedTasks()
+    repeat = agent_routes.start_sync_map_all(project.id, repeat_tasks)
+    assert repeat_tasks.tasks == []
+    assert agent_routes._jobs[repeat["job_id"]]["result"] == []
+
+
 if __name__ == "__main__":
     run_tests()

@@ -3,6 +3,9 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import stat
+import tempfile
+import threading
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -24,6 +27,15 @@ router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 PROJECTS_DIR = Path(os.environ.get("PROJECTS_DIR", Path(__file__).parent.parent.parent / "projects"))
 PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
+
+_project_save_locks: dict[str, threading.RLock] = {}
+_project_save_locks_guard = threading.Lock()
+
+
+def _project_save_lock(project_id: str) -> threading.RLock:
+    key = str(_project_path(project_id).resolve())
+    with _project_save_locks_guard:
+        return _project_save_locks.setdefault(key, threading.RLock())
 
 
 def _project_dir(project_id: str) -> Path:
@@ -422,6 +434,39 @@ def _item_reference_label(item: Item, prefix: str) -> str:
     return item_reference_label(item, prefix)
 
 
+_REFERENCE_LABEL_RE = _re.compile(
+    r"^(Definition|Theorem|Lemma|Corollary|Example|Exercise|Concept|Proposition)"
+    r"\s+\d+(?:\.\d+)*$"
+)
+
+
+def _reference_label_kind(label: str) -> str:
+    match = _REFERENCE_LABEL_RE.fullmatch((label or "").strip())
+    return match.group(1) if match else ""
+
+
+def _numbered_admonition_label(item: Item, prefix: str, kind: str = "") -> str:
+    if item.number == 0:
+        return ""
+    label_kind = kind or item.type.capitalize()
+    number = f"{prefix}.{item.number}" if prefix else str(item.number)
+    return f"{label_kind} {number}"
+
+
+def _renumbered_item_reference_label(item: Item, prefix: str, previous_ref: str) -> str:
+    """Return the post-renumber label without letting a stale document title win."""
+    current_ref = _item_reference_label(item, prefix).strip()
+    old_ref = (previous_ref or "").strip()
+
+    if item.kind == "admonition":
+        if current_ref and current_ref != old_ref:
+            return _numbered_admonition_label(item, prefix, _reference_label_kind(current_ref))
+        return _numbered_admonition_label(item, prefix, _reference_label_kind(old_ref))
+    if item.kind == "section":
+        return f"§ {item.content}"
+    return current_ref
+
+
 def _build_reference_graph(
     project: Project,
     *,
@@ -483,6 +528,12 @@ def _rewrite_document_reference_label(document: str, old_ref: str, new_ref: str)
     return document.replace(f"**{old_ref}**", f"**{new_ref}**")
 
 
+def _unlink_document_reference_label(document: str, old_ref: str) -> str:
+    if not document or not old_ref:
+        return document
+    return document.replace(f"**{old_ref}**", old_ref)
+
+
 def _renumber_items(
     project: Project,
     *,
@@ -507,7 +558,11 @@ def _renumber_items(
 
     items_by_id = {item.id: item for item in project.items}
     current_reference_labels = {
-        item.id: _item_reference_label(item, new_prefix)
+        item.id: _renumbered_item_reference_label(
+            item,
+            new_prefix,
+            previous_reference_labels.get(item.id, ""),
+        )
         for item in project.items
     }
 
@@ -555,23 +610,42 @@ def _save_project(
     previous_reference_labels: dict[str, str] | None = None,
     previous_referenced_by: dict[str, list[str]] | None = None,
 ) -> None:
-    _renumber_items(
-        project,
-        previous_reference_labels=previous_reference_labels,
-        previous_referenced_by=previous_referenced_by,
-    )
-    _recompute_status(project)
-    _apply_reference_graph(project)
-    if project.mappingPath:
-        sync_project_reverse_links(project)
-    if touch_updated:
-        project.updatedAt = datetime.now(timezone.utc).isoformat()
-    path = _project_path(project.id)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(project.model_dump_json(indent=2))
-    legacy = _legacy_project_path(project.id)
-    if legacy.exists():
-        legacy.unlink()
+    # HTTP handlers run in worker threads, alongside background agent saves.
+    # Serialize every save path and publish only complete project snapshots.
+    with _project_save_lock(project.id):
+        _renumber_items(
+            project,
+            previous_reference_labels=previous_reference_labels,
+            previous_referenced_by=previous_referenced_by,
+        )
+        _recompute_status(project)
+        _apply_reference_graph(project)
+        if project.mappingPath:
+            sync_project_reverse_links(project)
+        if touch_updated:
+            project.updatedAt = datetime.now(timezone.utc).isoformat()
+        path = _project_path(project.id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        payload = project.model_dump_json(indent=2)
+        temp_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=path.parent,
+                prefix=".project-", suffix=".tmp", delete=False,
+            ) as temp:
+                temp_path = Path(temp.name)
+                temp.write(payload)
+                temp.flush()
+                if path.exists():
+                    os.fchmod(temp.fileno(), stat.S_IMODE(path.stat().st_mode))
+                os.fsync(temp.fileno())
+            os.replace(temp_path, path)
+        finally:
+            if temp_path is not None:
+                temp_path.unlink(missing_ok=True)
+        legacy = _legacy_project_path(project.id)
+        if legacy.exists():
+            legacy.unlink()
 
 
 @router.get("")
@@ -777,25 +851,22 @@ def insert_item(project_id: str, body: dict) -> Project:
 def delete_item(project_id: str, item_id: str) -> Project:
     project = _load_project(project_id)
     previous_reference_labels, previous_referenced_by = _reference_snapshot(project)
+    deleted_ref = previous_reference_labels.get(item_id, "")
     if project.mappingPath:
-        item = next((it for it in project.items if it.id == item_id), None)
-        if item is not None:
-            prefix = _extract_prefix(project)
-            cap_type = item.type.capitalize() if item.kind == "admonition" else ""
-            if item.kind == "admonition" and item.number != 0:
-                new_ref = f"{cap_type} {prefix}.{item.number}" if prefix else f"{cap_type} {item.number}"
-            elif item.kind == "section":
-                new_ref = f"§ {item.content}"
-            else:
-                new_ref = ""
-            if new_ref:
-                delete_target_row(
-                    project.mappingPath,
-                    canonical_output_location(project.outputPath, project.mkdocsRoot),
-                    new_ref,
-                    location_aliases=output_location_candidates(project.outputPath, project.mkdocsRoot),
-                )
+        if deleted_ref:
+            delete_target_row(
+                project.mappingPath,
+                canonical_output_location(project.outputPath, project.mkdocsRoot),
+                deleted_ref,
+                location_aliases=output_location_candidates(project.outputPath, project.mkdocsRoot),
+            )
     project.items = [it for it in project.items if it.id != item_id]
+    remaining_by_id = {it.id: it for it in project.items}
+    for source_id in previous_referenced_by.get(item_id, []):
+        source_item = remaining_by_id.get(source_id)
+        if source_item is None or not source_item.document:
+            continue
+        source_item.document = _unlink_document_reference_label(source_item.document, deleted_ref)
     _save_project(
         project,
         previous_reference_labels=previous_reference_labels,

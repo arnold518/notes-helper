@@ -24,7 +24,7 @@ def _project(*, number_prefix: str, synced_number_prefix: str, items: list[Item]
     )
 
 
-def run_tests() -> None:
+def test_map_sync_selection() -> None:
     excerpt_changed = Item(
         kind="admonition",
         id="i1",
@@ -55,30 +55,66 @@ def run_tests() -> None:
         number=4,
         syncedNumber=4,
     )
-    no_excerpt = Item(
+    document_changed = Item(
         kind="admonition",
         id="i4",
+        type="lemma",
+        content="Document changed",
+        excerpt="stable excerpt",
+        syncedExcerpt="stable excerpt",
+        document="Now references **Theorem 2.1.5**.",
+        syncedDocument="Previously referenced nothing.",
+        number=5,
+        syncedNumber=5,
+    )
+    no_excerpt_document_changed = Item(
+        kind="admonition",
+        id="i5",
         type="example",
-        content="No excerpt",
+        content="No excerpt document changed",
         excerpt="",
         syncedExcerpt="",
+        document="Now references **Theorem 2.1.5**.",
+        syncedDocument="Previously referenced nothing.",
         number=5,
         syncedNumber=4,
+    )
+    empty_item = Item(
+        kind="admonition",
+        id="i6",
+        type="example",
+        content="No excerpt or document",
+        excerpt="",
+        syncedExcerpt="",
+        document="",
+        syncedDocument="",
+        number=6,
+        syncedNumber=5,
+    )
+    section_changed = Item(
+        kind="section",
+        id="sec",
+        type="h1",
+        content="2.1. Section",
+        excerpt="section excerpt",
+        syncedExcerpt="old section excerpt",
+        document="# 2.1. Section",
+        syncedDocument="# Old section",
     )
 
     same_prefix = _project(
         number_prefix="2.1",
         synced_number_prefix="2.1",
-        items=[excerpt_changed, number_changed, prefix_only, no_excerpt],
+        items=[section_changed, excerpt_changed, number_changed, prefix_only, document_changed, no_excerpt_document_changed, empty_item],
     )
-    assert unsynced_map_item_ids(same_prefix) == ["i1", "i2"]
+    assert unsynced_map_item_ids(same_prefix) == ["sec", "i1", "i2", "i4", "i5"]
 
     changed_prefix = _project(
         number_prefix="2.2",
         synced_number_prefix="2.1",
-        items=[excerpt_changed, number_changed, prefix_only, no_excerpt],
+        items=[section_changed, excerpt_changed, number_changed, prefix_only, document_changed, no_excerpt_document_changed, empty_item],
     )
-    assert unsynced_map_item_ids(changed_prefix) == ["i1", "i2", "i3"]
+    assert unsynced_map_item_ids(changed_prefix) == ["sec", "i1", "i2", "i3", "i4", "i5"]
 
     assert item_needs_map_sync(
         prefix_only,
@@ -86,11 +122,36 @@ def run_tests() -> None:
         synced_number_prefix="2.1",
     )
     assert not item_needs_map_sync(
-        no_excerpt,
+        empty_item,
         number_prefix="2.2",
         synced_number_prefix="2.1",
     )
 
+
+def test_heading_sync_selection() -> None:
+    for level in range(1, 7):
+        for field in ("excerpt", "document"):
+            item = Item(kind="section", id="heading", type=f"h{level}", content="Heading")
+            project = _project(number_prefix="2.1", synced_number_prefix="2.1", items=[item])
+            assert unsynced_map_item_ids(project) == []
+
+            setattr(item, field, "   \n")
+            assert unsynced_map_item_ids(project) == []
+
+            setattr(item, field, f"{'#' * level} Heading")
+            assert unsynced_map_item_ids(project) == [item.id]
+
+            item.syncedExcerpt = item.excerpt
+            item.syncedDocument = item.document
+            assert unsynced_map_item_ids(project) == []
+
+            project.numberPrefix = "2.2"
+            assert unsynced_map_item_ids(project) == [item.id]
+
+
+def run_tests() -> None:
+    test_map_sync_selection()
+    test_heading_sync_selection()
     print("PASS: sync map selection")
 
 

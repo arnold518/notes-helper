@@ -19,6 +19,7 @@ class AgentRuntimeConfig(BaseModel):
 
 
 class CodexRuntimeConfig(BaseModel):
+    command: str = "codex"
     model: str = ""
     reasoning_effort: str = ""
 

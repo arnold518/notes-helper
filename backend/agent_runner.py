@@ -15,11 +15,13 @@ from backend_config import load_backend_config
 from mapping_store import (
     MappingRow,
     canonical_output_location,
+    item_reference_label,
     output_location_candidates,
     parse_mapping_file,
     project_entry_order_index,
     write_mapping_file,
 )
+from map_sync import item_has_map_surface
 from models import AiConversationMessage, Project
 
 _agent_run_semaphore: asyncio.Semaphore | None = None
@@ -59,7 +61,8 @@ def _agent_command(
             "text",
         ]
     if provider == "codex":
-        cmd = ["codex", "exec"]
+        executable = load_backend_config().codex.command.strip() or "codex"
+        cmd = [executable, "exec"]
         if model:
             cmd += ["-m", model]
         if reasoning_effort:
@@ -240,18 +243,19 @@ def _project_context_block(project: Project) -> str:
         f"- Mapping path: {project.mappingPath or '(none)'}\n"
         f"- Output path: {project.outputPath or '(none)'}\n"
         f"- MkDocs root: {project.mkdocsRoot or '(none)'}\n"
-        f"- Match rules: {_rules_path(project.id, 'match')}\n"
-        f"- Generate rules: {_rules_path(project.id, 'generate')}\n"
-        f"- Map rules: {_rules_path(project.id, 'map')}\n"
+        f"- Match rules: {_rules_path(project, 'match')}\n"
+        f"- Generate rules: {_rules_path(project, 'generate')}\n"
+        f"- Map rules: {_rules_path(project, 'map')}\n"
         f"- References:\n{refs_text}"
     )
 
 
-def _rules_path(project_id: str, kind: str) -> Path:
+def _rules_path(project_or_id: Project | str, kind: str) -> Path:
     from routers.projects import _load_project
     from routers.subjects import subject_rules_path_for_project
 
-    return subject_rules_path_for_project(_load_project(project_id), kind)
+    project = project_or_id if isinstance(project_or_id, Project) else _load_project(project_or_id)
+    return subject_rules_path_for_project(project, kind)
 
 
 def _stage_dir(project_id: str, item_id: str = "") -> Path:
@@ -952,6 +956,10 @@ def _deterministic_original_refs(item, new_ref: str) -> list[str]:
         value = _clean_source_ref_candidate(candidate)
         if not value:
             continue
+        if value.count("(") != value.count(")") or value.count("[") != value.count("]"):
+            continue
+        if re.search(r"=>|[=<>|]", value):
+            continue
         if value.casefold() == new_ref_key:
             continue
         if re.fullmatch(rf"{re.escape(item.type.capitalize())}\s+\d+(?:\.\d+)*", value):
@@ -990,6 +998,19 @@ def _merge_mapping_updates(
             None,
         )
         if row is None:
+            row = next(
+                (
+                    existing
+                    for existing in rows
+                    if existing.new_ref == new_ref
+                    and existing.location in location_aliases
+                    and not existing.original_refs
+                ),
+                None,
+            )
+            if row is not None:
+                row.source_doc = source_doc
+        if row is None:
             rows.append(
                 MappingRow(
                     source_doc=source_doc,
@@ -1008,6 +1029,102 @@ def _merge_mapping_updates(
         rows,
         entry_order_index=project_entry_order_index(project),
     )
+
+
+def _primary_mapping_source_doc(project: Project, rows: list[MappingRow]) -> str:
+    counts: dict[str, int] = {}
+    for row in rows:
+        if row.source_doc:
+            counts[row.source_doc] = counts.get(row.source_doc, 0) + 1
+    if counts:
+        return sorted(counts.items(), key=lambda item: (-item[1], item[0]))[0][0]
+
+    for ref in project.references:
+        source_doc = (ref.originalPath or ref.path or "").strip()
+        if source_doc:
+            return source_doc
+
+    return canonical_output_location(project.outputPath, project.mkdocsRoot) or (project.outputPath or "").strip()
+
+
+def _ensure_document_mapping_rows(project: Project) -> None:
+    if not project.mappingPath:
+        return
+
+    rows = parse_mapping_file(project.mappingPath)
+    canonical_location = canonical_output_location(project.outputPath, project.mkdocsRoot)
+    if not canonical_location:
+        return
+
+    source_doc = _primary_mapping_source_doc(project, rows)
+    if not source_doc:
+        return
+
+    prefix = ""
+    for item in project.items:
+        if item.kind == "section" and item.type == "h1":
+            match = re.search(r"(?:§\s*)?(\d+(?:\.\d+)*)", item.content)
+            if match:
+                prefix = match.group(1)
+            break
+
+    location_aliases = set(output_location_candidates(project.outputPath, project.mkdocsRoot))
+    location_aliases.add(canonical_location)
+    current_refs = {
+        _item_new_ref(item, prefix)
+        for item in project.items
+        if item_has_map_surface(item)
+    }
+    current_refs = {ref for ref in current_refs if ref}
+    changed = False
+
+    pruned_rows = [
+        row
+        for row in rows
+        if not (row.location in location_aliases and row.new_ref not in current_refs)
+    ]
+    if len(pruned_rows) != len(rows):
+        rows = pruned_rows
+        changed = True
+
+    for item in project.items:
+        if not item_has_map_surface(item) or not (item.document or "").strip():
+            continue
+
+        new_ref = _item_new_ref(item, prefix)
+        if not new_ref:
+            continue
+
+        row = next(
+            (
+                existing
+                for existing in rows
+                if existing.new_ref == new_ref and existing.location in location_aliases
+            ),
+            None,
+        )
+        if row is not None:
+            if row.location != canonical_location:
+                row.location = canonical_location
+                changed = True
+            continue
+
+        rows.append(
+            MappingRow(
+                source_doc=source_doc,
+                new_ref=new_ref,
+                location=canonical_location,
+                original_refs=[],
+            )
+        )
+        changed = True
+
+    if changed:
+        write_mapping_file(
+            project.mappingPath,
+            rows,
+            entry_order_index=project_entry_order_index(project),
+        )
 
 
 def _parse_markdown_table_row(line: str) -> list[str] | None:
@@ -1474,14 +1591,7 @@ def _format_resolved_reference_hint(
 
 def _item_new_ref(item, prefix: str) -> str:
     """Return the 'New ref' label for an item (used in the numbering map)."""
-    if item.kind == "admonition":
-        if item.number == 0:
-            return ""
-        cap = item.type.capitalize()
-        return f"{cap} {prefix}.{item.number}" if prefix else f"{cap} {item.number}"
-    elif item.kind == "section":
-        return f"§ {item.content}"
-    return ""
+    return item_reference_label(item, prefix)
 
 
 async def run_map_update_agent(
@@ -1506,6 +1616,7 @@ async def run_map_update_agent(
             break
 
     location = canonical_output_location(project.outputPath, project.mkdocsRoot)
+    _ensure_document_mapping_rows(project)
 
     # Build mapping: current ref name (as it appears in excerpt headers) → original path
     ref_name_to_original: dict[str, str] = {}
@@ -1521,7 +1632,7 @@ async def run_map_update_agent(
 
     for iid in item_ids:
         item = items_by_id.get(iid)
-        if item is None or not item.excerpt:
+        if item is None or not item_has_map_surface(item) or not item.excerpt:
             continue
         new_ref = _item_new_ref(item, prefix)
         if not new_ref:

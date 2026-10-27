@@ -4,6 +4,7 @@ __pycache__/
 .codex/
 frontend/dist/
 backend/preview/
+ocr_images/
 
 projects/*
 !projects/_subjects/

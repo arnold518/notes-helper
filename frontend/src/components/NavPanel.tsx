@@ -38,9 +38,10 @@ export default function NavPanel({ items, selectedId, onSelect, onInsertAfter, o
   function renderChip(item: Item) {
     const isActive = selectedId === item.id;
     const borderColor = STATUS_COLORS[item.status];
-    const isUnsynced = !!mappingPath && !!item.excerpt && (
+    const isUnsynced = !!mappingPath && !!(item.excerpt || item.document) && (
       item.excerpt !== item.syncedExcerpt ||
       item.number !== item.syncedNumber ||
+      item.document !== item.syncedDocument ||
       numberPrefix !== syncedNumberPrefix
     );
 

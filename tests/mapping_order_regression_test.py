@@ -43,8 +43,13 @@ if "fastapi" not in sys.modules:
     sys.modules["fastapi"] = fastapi
 
 from models import Item, Project  # noqa: E402
-from agent_runner import _merge_mapping_updates  # noqa: E402
-from mapping_store import parse_mapping_file, write_mapping_file  # noqa: E402
+from agent_runner import _item_new_ref, _merge_mapping_updates  # noqa: E402
+from mapping_store import (  # noqa: E402
+    item_reference_label,
+    parse_mapping_file,
+    project_entry_order_index,
+    write_mapping_file,
+)
 from routers import projects as project_routes  # noqa: E402
 
 
@@ -261,6 +266,42 @@ def run_tests() -> None:
         assert lines == [
             "| Concept 2.2.32 | **relative phase**; **global phase** | qcqi/2.2.md | qcqi/2.2.md::Definition 2.2.33 |  |",
         ], lines
+
+    with TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        mkdocs_root = root / "mkdocs"
+        output_path = mkdocs_root / "docs" / "linear-algebra" / "30.md"
+        item = Item(
+            kind="admonition",
+            id="lemma",
+            type="theorem",
+            content="Lemma 30.1",
+            document='!!! theorem "Lemma 30.1"\n    Body text.',
+            number=1,
+        )
+        fallback_item = Item(
+            kind="admonition",
+            id="fallback",
+            type="theorem",
+            content="Theorem fallback",
+            number=2,
+        )
+        project = Project(
+            id="p4",
+            title="Docs title label",
+            mkdocsRoot=str(mkdocs_root),
+            outputPath=str(output_path),
+            items=[Item(kind="section", id="sec", type="h1", content="30. Test"), item],
+            createdAt="2026-03-21T00:00:00+00:00",
+            updatedAt="2026-03-21T00:00:00+00:00",
+        )
+
+        assert item_reference_label(item, "30") == "Lemma 30.1"
+        assert _item_new_ref(item, "30") == "Lemma 30.1"
+        assert item_reference_label(fallback_item, "30") == "Theorem 30.2"
+        order_index = project_entry_order_index(project)
+        assert "linear-algebra/30.md::Lemma 30.1" in order_index
+        assert "linear-algebra/30.md::Theorem 30.1" not in order_index
 
     print("PASS: mapping order regression")
 

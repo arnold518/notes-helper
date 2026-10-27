@@ -96,6 +96,9 @@ export default function ItemMetaBar({ item, project, numberPrefix, onUpdate, onS
   }
 
   const currentValue = encodeKindType(item.kind, item.type);
+  const availableAdmonitionTypes = item.kind === "admonition" && !admonitionTypes.some((a) => a.type === item.type)
+    ? [...admonitionTypes, { type: item.type, color: "" }]
+    : admonitionTypes;
 
   return (
     <div className="item-meta-bar">
@@ -145,9 +148,9 @@ export default function ItemMetaBar({ item, project, numberPrefix, onUpdate, onS
         <optgroup label="Text">
           <option value="text:">Plain text</option>
         </optgroup>
-        {admonitionTypes.length > 0 && (
+        {availableAdmonitionTypes.length > 0 && (
           <optgroup label="Admonition">
-            {admonitionTypes.map((a) => (
+            {availableAdmonitionTypes.map((a) => (
               <option key={a.type} value={`admonition:${a.type}`}>
                 {a.type}
               </option>

@@ -9,13 +9,13 @@
   "references": [
     {
       "id": "7a8190ca",
-      "name": "source_part1.md",
+      "name": "textbook.md",
       "path": "/home/arnold/arnold/github/math-notes/docs/linear-algebra/Stephen H. Friedberg, Arnold J. Insel, Lawrence E. Spence - Linear Algebra (Part 1) (1).md",
       "originalPath": "/home/arnold/arnold/github/math-notes/docs/linear-algebra/Stephen H. Friedberg, Arnold J. Insel, Lawrence E. Spence - Linear Algebra (Part 1) (1).md",
       "prepared": true
     }
   ],
   "createdAt": "2026-05-15T00:00:00+00:00",
-  "updatedAt": "2026-05-15T00:00:00+00:00",
-  "projectCount": 27
+  "updatedAt": "2026-05-25T10:39:24.675720+00:00",
+  "projectCount": 28
 }

@@ -1,0 +1,17 @@
+[Unit]
+Description=notes-helper frontend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=arnold
+Group=arnold
+WorkingDirectory=/home/arnold/arnold/github/notes-helper/frontend
+ExecStartPre=/usr/bin/npm run build
+ExecStart=/usr/bin/npm run preview
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

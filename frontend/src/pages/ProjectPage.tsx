@@ -287,9 +287,10 @@ export default function ProjectPage({ projectId, onBack }: Props) {
   const unsyncedCount = useMemo(() => {
     if (!project?.mappingPath) return 0;
     return project.items.filter((it) =>
-      it.excerpt && (
+      (it.excerpt || it.document) && (
         it.excerpt !== it.syncedExcerpt ||
         it.number !== it.syncedNumber ||
+        it.document !== it.syncedDocument ||
         project.numberPrefix !== project.syncedNumberPrefix
       )
     ).length;

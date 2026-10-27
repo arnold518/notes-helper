@@ -168,6 +168,7 @@ def test_rebuild_mapping_from_scratch_batches_and_stamps() -> None:
                 continue
             assert item.syncedExcerpt == item.excerpt
             assert item.syncedNumber == item.number
+            assert item.syncedDocument == item.document
         assert Path(result["projectBackup"]).exists()
         assert Path(result["mappingBackup"]).exists()
 

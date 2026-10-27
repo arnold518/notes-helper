@@ -46,6 +46,7 @@ def run_tests() -> None:
         project = Project(
             id="p1",
             title="Prompt regression test",
+            mkdocsRoot=str(root),
             outputPath=str(root / "docs" / "2.1.md"),
             mappingPath=str(mapping),
             references=[
@@ -63,6 +64,23 @@ def run_tests() -> None:
                     type="h1",
                     content="2.1. Linear Algebra",
                     number=0,
+                ),
+                # Mapping cleanup retains rows backed by current project items.
+                Item(
+                    kind="admonition",
+                    id="pauli",
+                    type="definition",
+                    content="Pauli matrices",
+                    document='!!! definition "Definition 2.1.11 : Pauli matrices"\n    The Pauli matrices.',
+                    number=11,
+                ),
+                Item(
+                    kind="admonition",
+                    id="gram-schmidt",
+                    type="theorem",
+                    content="Gram-Schmidt procedure",
+                    document='!!! theorem "Theorem 2.1.18 : Gram-Schmidt procedure"\n    Extend an orthonormal basis.',
+                    number=18,
                 ),
                 Item(
                     kind="admonition",

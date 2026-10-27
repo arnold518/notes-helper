@@ -1,0 +1,21 @@
+{
+  "id": "abstract-algebra",
+  "name": "Abstract Algebra",
+  "titlePrefix": "Abstract Algebra",
+  "mkdocsRoot": "/home/arnold/arnold/github/math-notes",
+  "docsDir": "/home/arnold/arnold/github/math-notes/docs/abstract-algebra",
+  "blueprintDir": "/home/arnold/arnold/github/math-notes/docs/abstract-algebra/blueprints",
+  "mappingPath": "/home/arnold/arnold/github/math-notes/docs/abstract-algebra/mapping.md",
+  "references": [
+    {
+      "id": "82604412",
+      "name": "textbook.md",
+      "path": "/home/arnold/arnold/github/math-notes/docs/abstract-algebra/Fraleigh, John B. - A first course in abstract algebra-Pearson (2014).mdf",
+      "originalPath": "/home/arnold/arnold/github/math-notes/docs/abstract-algebra/Fraleigh, John B. - A first course in abstract algebra-Pearson (2014).mdf",
+      "prepared": true
+    }
+  ],
+  "createdAt": "2026-05-29T00:00:00+00:00",
+  "updatedAt": "2026-05-29T00:00:00+00:00",
+  "projectCount": 0
+}

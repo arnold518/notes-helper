@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Iterable, Sequence
 
 from agent_runner import _rules_path, _stage_dir, run_generate_agent, run_map_update_agent
+from map_sync import item_has_map_surface
 from mkdocs_parser import get_admonition_types
 from models import Project
 from routers.projects import PROJECTS_DIR, _load_project, _project_path, _save_project
@@ -50,7 +51,7 @@ def _mapping_rebuild_item_ids(project: Project) -> list[str]:
     return [
         item.id
         for item in project.items
-        if item.kind != "text" and item.excerpt.strip()
+        if item_has_map_surface(item)
     ]
 
 
@@ -111,6 +112,7 @@ async def rebuild_mapping_from_scratch(
             if item.id in synced_set:
                 item.syncedExcerpt = item.excerpt
                 item.syncedNumber = item.number
+                item.syncedDocument = item.document
         current.syncedNumberPrefix = current.numberPrefix
         _save_project(current)
         processed_batches.append(batch)

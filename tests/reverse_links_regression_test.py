@@ -147,6 +147,92 @@ def test_reverse_links_and_renumber() -> None:
         assert theorem.referencedBy == ["ex"], theorem.referencedBy
 
 
+def test_delete_item_unlinks_stale_document_references() -> None:
+    with TemporaryDirectory() as tmpdir:
+        _project_root(tmpdir)
+        project = _make_project("p1")
+
+        project_routes._save_project(project)
+        updated = project_routes.delete_item("p1", "thm")
+        example = next(item for item in updated.items if item.id == "ex")
+
+        assert example.number == 1, example.number
+        assert "Example 2.1.1 : Uses theorem" in example.document, example.document
+        assert "**Theorem 2.1.1**" not in example.document, example.document
+        assert "Theorem 2.1.1" in example.document, example.document
+        assert example.references == [], example.references
+        assert example.referencedBy == [], example.referencedBy
+
+
+def test_renumber_preserves_document_label_kind() -> None:
+    with TemporaryDirectory() as tmpdir:
+        _project_root(tmpdir)
+        project = Project(
+            id="p1",
+            title="Lemma label preservation",
+            outputPath="/tmp/qcqi/2.1.md",
+            items=[
+                Item(
+                    kind="section",
+                    id="sec",
+                    type="h1",
+                    content="2.1. Linear Algebra",
+                    document="# 2.1. Linear Algebra",
+                ),
+                Item(
+                    kind="admonition",
+                    id="lem",
+                    type="theorem",
+                    content="Stored as theorem, labeled as lemma",
+                    document='!!! theorem "Lemma 2.1.1 : Stored as lemma"\n    Statement.',
+                    excerpt="lemma excerpt",
+                    number=1,
+                ),
+                Item(
+                    kind="admonition",
+                    id="ex",
+                    type="example",
+                    content="Uses lemma",
+                    document=(
+                        '!!! example "Example 2.1.2 : Uses lemma"\n'
+                        "    Apply **Lemma 2.1.1** to obtain the result."
+                    ),
+                    excerpt="example excerpt",
+                    number=2,
+                ),
+            ],
+            createdAt="2026-03-21T00:00:00+00:00",
+            updatedAt="2026-03-21T00:00:00+00:00",
+        )
+
+        project_routes._save_project(project)
+        current = project_routes._load_project("p1")
+        current.items.insert(
+            1,
+            Item(
+                kind="admonition",
+                id="def",
+                type="definition",
+                content="Inserted first entry",
+                document='!!! definition "Definition 2.1.1 : Inserted first entry"\n    New entry.',
+                excerpt="definition excerpt",
+                number=1,
+            ),
+        )
+        project_routes._save_project(current)
+
+        updated = project_routes._load_project("p1")
+        lemma = next(item for item in updated.items if item.id == "lem")
+        example = next(item for item in updated.items if item.id == "ex")
+
+        assert lemma.number == 2, lemma.number
+        assert "Lemma 2.1.2 : Stored as lemma" in lemma.document, lemma.document
+        assert "Theorem 2.1.2" not in lemma.document, lemma.document
+        assert "**Lemma 2.1.2**" in example.document, example.document
+        assert example.references == ["lem"], example.references
+        assert lemma.referencedBy == ["ex"], lemma.referencedBy
+
+
 def test_default_generate_rules_include_multipart_list_rule() -> None:
     generate_rules = default_rules("generate")
     assert (
@@ -215,6 +301,8 @@ def test_sync_map_regenerates_direct_dependents() -> None:
 
 def run_tests() -> None:
     test_reverse_links_and_renumber()
+    test_delete_item_unlinks_stale_document_references()
+    test_renumber_preserves_document_label_kind()
     test_default_generate_rules_include_multipart_list_rule()
     test_sync_map_regenerates_direct_dependents()
     print("PASS: reverse link regression")

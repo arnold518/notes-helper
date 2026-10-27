@@ -122,7 +122,7 @@ export default function CodingPanel({
                 onJobFinish={onEditExcerptJobFinish}
                 onDone={onProjectUpdate}
               />
-              {project.mappingPath && item.excerpt && (
+              {project.mappingPath && (item.excerpt || item.document) && (
                 <RunButton
                   projectId={project.id}
                   action="sync-map"

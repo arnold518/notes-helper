@@ -111,8 +111,27 @@ def mapping_locator(location: str, new_ref: str) -> str:
     return f"{loc}::{ref}"
 
 
+_ADMONITION_TITLE_RE = re.compile(r'^!!!\s+[a-zA-Z0-9_-]+(?:\s+"([^"]*)")?', re.MULTILINE)
+_DOCUMENT_REF_LABEL_RE = re.compile(
+    r"\b(Definition|Theorem|Lemma|Corollary|Example|Exercise|Concept|Proposition)"
+    r"\s+\d+(?:\.\d+)*\b"
+)
+
+
+def document_reference_label(document: str) -> str:
+    match = _ADMONITION_TITLE_RE.search(document or "")
+    if not match:
+        return ""
+    title = (match.group(1) or "").strip()
+    label_match = _DOCUMENT_REF_LABEL_RE.search(title)
+    return label_match.group(0).strip() if label_match else ""
+
+
 def item_reference_label(item: Item, prefix: str) -> str:
     if item.kind == "admonition":
+        document_label = document_reference_label(item.document)
+        if document_label:
+            return document_label
         if item.number == 0:
             return ""
         cap_type = item.type.capitalize()

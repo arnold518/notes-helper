@@ -11,5 +11,10 @@ export default defineConfig({
     allowedHosts: ["arnold.dream.ddns-ip.net"],
     watch: { usePolling: true, interval: 1000 },
   },
-  preview: { port: 4172 },
+  preview: {
+    host: '0.0.0.0',
+    port: 5172,
+    strictPort: true,
+    allowedHosts: ['arnold.dream.ddns-ip.net'],
+  },
 })

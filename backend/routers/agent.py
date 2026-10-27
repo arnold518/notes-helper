@@ -543,12 +543,13 @@ async def _run_match(job_id: str, project: Project, req: MatchRequest) -> None:
                         cwd=cwd,
                         map_rules_path=str(_rules_path(project.id, "map")),
                     )
-                    # Stamp syncedExcerpt/syncedNumber/syncedNumberPrefix on success
+                    # Stamp map-sync snapshots on success.
                     current = _load_project(project.id)
                     for it in current.items:
                         if it.id in succeeded_ids:
                             it.syncedExcerpt = it.excerpt
                             it.syncedNumber = it.number
+                            it.syncedDocument = it.document
                     current.syncedNumberPrefix = current.numberPrefix
                     _save_project(current)
                     _, regen_errors = await _regenerate_reference_dependents(
@@ -756,12 +757,13 @@ async def _run_sync_map(job_id: str, project: Project, item_id: str) -> None:
             cwd=cwd,
             map_rules_path=str(_rules_path(project.id, "map")),
         )
-        # Stamp syncedExcerpt/syncedNumber/syncedNumberPrefix on success
+        # Stamp map-sync snapshots on success.
         current = _load_project(project.id)
         for it in current.items:
             if it.id == item_id:
                 it.syncedExcerpt = it.excerpt
                 it.syncedNumber = it.number
+                it.syncedDocument = it.document
                 break
         current.syncedNumberPrefix = current.numberPrefix
         _save_project(current)
@@ -801,6 +803,7 @@ async def _run_sync_map_all(job_id: str, project: Project, item_ids: list[str]) 
             if it.id in synced_set:
                 it.syncedExcerpt = it.excerpt
                 it.syncedNumber = it.number
+                it.syncedDocument = it.document
         current.syncedNumberPrefix = current.numberPrefix
         _save_project(current)
         regenerated_ids, regen_errors = await _regenerate_reference_dependents(

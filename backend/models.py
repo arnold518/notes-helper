@@ -16,6 +16,7 @@ class Item(BaseModel):
     syncedExcerpt: str = ""  # excerpt value at last successful map sync
     syncedNumber: int = 0    # item.number at last successful map sync
     document: str = "" # generated markdown (heading, paragraph, or admonition block)
+    syncedDocument: str = ""  # document value at last successful map sync
     status: EntryStatus = "pending"
     number: int = 0
     autonumber: bool = True

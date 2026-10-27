@@ -1,0 +1,21 @@
+{
+  "id": "mathematical-statistics",
+  "name": "Mathematical Statistics",
+  "titlePrefix": "Mathematical Statistics",
+  "mkdocsRoot": "/home/arnold/arnold/github/math-notes",
+  "docsDir": "/home/arnold/arnold/github/math-notes/docs/mathematical-statistics",
+  "blueprintDir": "/home/arnold/arnold/github/math-notes/docs/mathematical-statistics/blueprints",
+  "mappingPath": "/home/arnold/arnold/github/math-notes/docs/mathematical-statistics/mapping.md",
+  "references": [
+    {
+      "id": "ee6a94c8",
+      "name": "textbook.md",
+      "path": "/home/arnold/arnold/github/math-notes/docs/mathematical-statistics/Hogg, Robert V., McKean, Joseph W., Craig, Allen T. - Introduction to Mathematical Statistics (8th Edition).mdf",
+      "originalPath": "/home/arnold/arnold/github/math-notes/docs/mathematical-statistics/Hogg, Robert V., McKean, Joseph W., Craig, Allen T. - Introduction to Mathematical Statistics (8th Edition).mdf",
+      "prepared": false
+    }
+  ],
+  "createdAt": "2026-10-17T03:41:40.901566+00:00",
+  "updatedAt": "2026-10-17T03:41:40.901566+00:00",
+  "projectCount": 0
+}

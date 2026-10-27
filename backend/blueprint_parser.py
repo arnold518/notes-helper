@@ -27,6 +27,8 @@ DEFAULT_PREFIX_MAP: dict[str, str] = {
     "warn": "warning",
     "tip":  "tip",
     "info": "info",
+    "alg":  "code",
+    "algo": "code",
 }
 
 

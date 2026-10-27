@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import sys
 import types
 from pathlib import Path
@@ -42,6 +43,8 @@ if "fastapi" not in sys.modules:
     fastapi.HTTPException = HTTPException
     sys.modules["fastapi"] = fastapi
 
+import ai_logs as ai_logs_mod  # noqa: E402
+from agent_runner import run_map_update_agent  # noqa: E402
 from mapping_store import parse_mapping_file  # noqa: E402
 from models import Item, Project  # noqa: E402
 from routers import projects as project_routes  # noqa: E402
@@ -149,8 +152,164 @@ def test_mapping_file_reverse_links_and_renumber() -> None:
         assert theorem_row.referenced_by == ["qcqi/2.1.md::Example 2.1.3"], theorem_row.referenced_by
 
 
+def test_no_excerpt_document_item_gets_mapping_row_for_reverse_links() -> None:
+    original_logs_dir = ai_logs_mod.PROJECTS_DIR
+    try:
+        with TemporaryDirectory() as tmpdir:
+            _setup_project_root(tmpdir)
+            root = Path(tmpdir)
+            ai_logs_mod.PROJECTS_DIR = root / "log-projects"
+            mkdocs_root = root / "mkdocs"
+            output_path = mkdocs_root / "docs" / "qcqi" / "2.1.md"
+            mapping_path = root / "mapping.md"
+            source_doc = root / "refs" / "[NC2010]QCQI.md"
+
+            _write(
+                mapping_path,
+                (
+                    f"## Reference: {source_doc}\n\n"
+                    "| New ref | Original ref | Location |\n"
+                    "| --- | --- | --- |\n"
+                    "| § 2.1. Linear Algebra | **2.1. Linear Algebra** | qcqi/2.1.md |\n"
+                    "| Theorem 2.1.1 | **Gram-Schmidt procedure** | qcqi/2.1.md |\n"
+                    "| Theorem 2.1.7 | **stale row** | qcqi/2.1.md |\n"
+                ),
+            )
+
+            project = Project(
+                id="p1",
+                title="No excerpt mapping row",
+                mkdocsRoot=str(mkdocs_root),
+                outputPath=str(output_path),
+                mappingPath=str(mapping_path),
+                items=[
+                    Item(
+                        kind="section",
+                        id="sec",
+                        type="h1",
+                        content="2.1. Linear Algebra",
+                        document="# 2.1. Linear Algebra",
+                    ),
+                    Item(
+                        kind="admonition",
+                        id="thm",
+                        type="theorem",
+                        content="Gram-Schmidt",
+                        excerpt="theorem excerpt",
+                        document='!!! theorem "Theorem 2.1.1 : Gram-Schmidt"\n    Statement.',
+                    ),
+                    Item(
+                        kind="admonition",
+                        id="ex",
+                        type="example",
+                        content="Document-only example",
+                        excerpt="",
+                        document=(
+                            '!!! example "Example 2.1.2 : Document-only example"\n'
+                            "    This uses **Theorem 2.1.1**."
+                        ),
+                    ),
+                ],
+                createdAt="2026-03-21T00:00:00+00:00",
+                updatedAt="2026-03-21T00:00:00+00:00",
+            )
+
+            asyncio.run(
+                run_map_update_agent(
+                    project=project,
+                    item_ids=["ex"],
+                    stage_dir="",
+                    cwd=str(root),
+                    map_rules_path="",
+                )
+            )
+            project_routes._save_project(project)
+
+            rows = parse_mapping_file(str(mapping_path))
+            heading_row = next(row for row in rows if row.new_ref == "§ 2.1. Linear Algebra")
+            assert heading_row.original_refs == ["2.1. Linear Algebra"]
+            assert not any(row.new_ref == "Theorem 2.1.7" for row in rows)
+            theorem_row = next(row for row in rows if row.new_ref == "Theorem 2.1.1")
+            example_row = next(row for row in rows if row.new_ref == "Example 2.1.2")
+            assert example_row.original_refs == []
+            assert example_row.references == ["qcqi/2.1.md::Theorem 2.1.1"], example_row.references
+            assert theorem_row.referenced_by == ["qcqi/2.1.md::Example 2.1.2"], theorem_row.referenced_by
+    finally:
+        ai_logs_mod.PROJECTS_DIR = original_logs_dir
+
+
+def test_delete_item_removes_mapping_row_and_deleted_references() -> None:
+    with TemporaryDirectory() as tmpdir:
+        _setup_project_root(tmpdir)
+        root = Path(tmpdir)
+        mkdocs_root = root / "mkdocs"
+        output_path = mkdocs_root / "docs" / "qcqi" / "2.1.md"
+        mapping_path = root / "mapping.md"
+        source_doc = root / "refs" / "[NC2010]QCQI.md"
+
+        _write(
+            mapping_path,
+            (
+                f"## Reference: {source_doc}\n\n"
+                "| New ref | Original ref | Location | References | Referenced by |\n"
+                "| --- | --- | --- | --- | --- |\n"
+                "| Theorem 2.1.1 | **Gram-Schmidt procedure** | qcqi/2.1.md |  | qcqi/2.1.md::Example 2.1.2 |\n"
+                "| Example 2.1.2 | **trace identity example** | qcqi/2.1.md | qcqi/2.1.md::Theorem 2.1.1 |  |\n"
+            ),
+        )
+
+        project = Project(
+            id="p1",
+            title="Mapping delete links",
+            mkdocsRoot=str(mkdocs_root),
+            outputPath=str(output_path),
+            mappingPath=str(mapping_path),
+            items=[
+                Item(
+                    kind="section",
+                    id="sec",
+                    type="h1",
+                    content="2.1. Linear Algebra",
+                    document="# 2.1. Linear Algebra",
+                ),
+                Item(
+                    kind="admonition",
+                    id="thm",
+                    type="theorem",
+                    content="Gram-Schmidt",
+                    excerpt="theorem excerpt",
+                    document='!!! theorem "Theorem 2.1.1 : Gram-Schmidt"\n    Statement.',
+                ),
+                Item(
+                    kind="admonition",
+                    id="ex",
+                    type="example",
+                    content="Uses theorem",
+                    excerpt="example excerpt",
+                    document=(
+                        '!!! example "Example 2.1.2 : Uses theorem"\n'
+                        "    Using **Theorem 2.1.1**, obtain the basis."
+                    ),
+                ),
+            ],
+            createdAt="2026-03-21T00:00:00+00:00",
+            updatedAt="2026-03-21T00:00:00+00:00",
+        )
+
+        project_routes._save_project(project)
+        project_routes.delete_item("p1", "thm")
+
+        rows = parse_mapping_file(str(mapping_path))
+        assert not any(row.new_ref == "Theorem 2.1.1" for row in rows)
+        example_row = next(row for row in rows if row.new_ref == "Example 2.1.1")
+        assert example_row.references == [], example_row.references
+        assert example_row.referenced_by == [], example_row.referenced_by
+
+
 def run_tests() -> None:
     test_mapping_file_reverse_links_and_renumber()
+    test_no_excerpt_document_item_gets_mapping_row_for_reverse_links()
+    test_delete_item_removes_mapping_row_and_deleted_references()
     print("PASS: mapping reverse links")
 
 

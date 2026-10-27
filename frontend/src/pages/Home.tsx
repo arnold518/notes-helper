@@ -16,7 +16,15 @@ export default function Home({ onOpenSubject }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.listSubjects().then(setSubjects).catch(console.error);
+    api.listSubjects()
+      .then((data) => {
+        setSubjects(data);
+        setError(null);
+      })
+      .catch((e) => {
+        console.error(e);
+        setError(e instanceof Error ? e.message : "Failed to load subjects");
+      });
   }, []);
 
   async function handleCreate(e: React.FormEvent) {

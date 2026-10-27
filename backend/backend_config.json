@@ -5,7 +5,8 @@
     "worker_count": 4
   },
   "codex": {
-    "model": "gpt-5.3-codex-spark",
+    "command": "codex3",
+    "model": "",
     "reasoning_effort": "high"
   },
   "generation": {

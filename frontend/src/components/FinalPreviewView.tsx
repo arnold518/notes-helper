@@ -61,6 +61,7 @@ export default function FinalPreviewView({
           <PreviewIframe
             content={content}
             mkdocsRoot={mkdocsRoot}
+            outputPath={outputPath}
             autoPreviewKey={autoPreviewKey}
           />
         </div>

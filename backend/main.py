@@ -2,16 +2,21 @@
 from __future__ import annotations
 import os
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.responses import PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
 from models import PreviewRequest
-from preview_config import build_preview_mkdocs_config
+from preview_config import (
+    build_preview_mkdocs_config,
+    merge_preview_asset_tree,
+    resolve_preview_document_path,
+)
 from routers import projects as projects_router
 from routers import agent as agent_router
 from routers import subjects as subjects_router
@@ -76,36 +81,54 @@ def mkdocs_config(root: str = Query(...)) -> list[dict]:
 @app.post("/api/preview")
 async def preview(req: PreviewRequest) -> dict:
     """Render markdown via MkDocs and return a URL to the rendered HTML."""
-    import subprocess
-    import tempfile
     import shutil
+    import subprocess
+    import yaml
 
     preview_dir = Path(__file__).parent / "preview"
     docs_dir = preview_dir / "docs"
     site_dir = preview_dir / "site"
+
+    # The preview tree is derived and single-use. Recreate it so assets and
+    # pages from a previously selected subject cannot leak into this build.
+    if docs_dir.is_symlink():
+        docs_dir.unlink()
+    elif docs_dir.exists():
+        shutil.rmtree(docs_dir)
     docs_dir.mkdir(parents=True, exist_ok=True)
 
-    preview_md = docs_dir / "preview.md"
+    src_root = Path(os.path.expanduser(req.mkdocsRoot)) if req.mkdocsRoot else Path()
+    orig_yml = src_root / "mkdocs.yml" if req.mkdocsRoot else None
+    source_config = (
+        yaml.safe_load(orig_yml.read_text(encoding="utf-8")) or {}
+        if orig_yml is not None and orig_yml.is_file()
+        else {}
+    )
+    preview_path = resolve_preview_document_path(
+        source_config,
+        mkdocs_root=src_root,
+        output_path=Path(req.outputPath) if req.outputPath else None,
+    )
+    preview_md = docs_dir / preview_path
+    preview_md.parent.mkdir(parents=True, exist_ok=True)
     preview_md.write_text(req.content, encoding="utf-8")
-
-    # Symlink image assets from the document's directory into preview/docs/
-    # Done before _write_preview_mkdocs so that function skips any dir we've already linked.
-    if req.outputPath:
-        src_assets = Path(os.path.expanduser(req.outputPath)).parent / "assets"
-        dst_assets = docs_dir / "assets"
-        if src_assets.is_dir() and not dst_assets.is_symlink():
-            if dst_assets.exists():
-                shutil.rmtree(dst_assets)
-            dst_assets.symlink_to(os.path.relpath(src_assets, docs_dir))
 
     # Write minimal mkdocs.yml if not present
     mkdocs_yml = preview_dir / "mkdocs.yml"
     if not mkdocs_yml.exists() or req.mkdocsRoot:
-        _write_preview_mkdocs(preview_dir, req.mkdocsRoot)
+        _write_preview_mkdocs(preview_dir, req.mkdocsRoot, preview_path=preview_path)
+
+    # Merge assets beside the source document after the project-wide MkDocs
+    # assets have been copied.  Both trees may use the top-level `assets/`
+    # namespace: the former contains chapter images while the latter contains
+    # extra.css and MathJax setup required to match the original site.
+    if req.outputPath:
+        src_assets = Path(os.path.expanduser(req.outputPath)).parent / "assets"
+        merge_preview_asset_tree(src_assets, preview_md.parent / "assets")
 
     mkdocs_bin = Path(__file__).parent / ".venv" / "bin" / "mkdocs"
     result = subprocess.run(
-        [str(mkdocs_bin), "build", "--dirty", "--quiet", "--config-file", str(mkdocs_yml)],
+        [str(mkdocs_bin), "build", "--quiet", "--config-file", str(mkdocs_yml)],
         capture_output=True,
         text=True,
         cwd=str(preview_dir),
@@ -113,10 +136,23 @@ async def preview(req: PreviewRequest) -> dict:
     if result.returncode != 0:
         raise HTTPException(status_code=500, detail=result.stderr[:1000])
 
-    return {"url": "/static/preview/preview/index.html"}
+    html_candidates = [
+        preview_path.with_suffix(".html"),
+        preview_path.with_suffix("") / "index.html",
+    ]
+    html_path = next((path for path in html_candidates if (site_dir / path).is_file()), None)
+    if html_path is None:
+        raise HTTPException(status_code=500, detail="MkDocs did not produce the preview page")
+
+    return {"url": f"/static/preview/{quote(html_path.as_posix())}"}
 
 
-def _write_preview_mkdocs(preview_dir: Path, mkdocs_root: str) -> None:
+def _write_preview_mkdocs(
+    preview_dir: Path,
+    mkdocs_root: str,
+    *,
+    preview_path: Path = Path("preview.md"),
+) -> None:
     import shutil
     import yaml
 
@@ -155,10 +191,10 @@ def _write_preview_mkdocs(preview_dir: Path, mkdocs_root: str) -> None:
         if src.is_dir():
             dest = docs_dir / dirname
             if dest.is_symlink():
-                continue  # already managed as a symlink (e.g. chapter image assets)
+                dest.unlink()
             if dest.exists():
                 shutil.rmtree(dest)
-            shutil.copytree(str(src), str(dest))
+            merge_preview_asset_tree(src, dest)
 
     # If theme has a custom_dir, resolve it to absolute (relative to mkdocs root)
     theme = config.get("theme", {})
@@ -171,6 +207,7 @@ def _write_preview_mkdocs(preview_dir: Path, mkdocs_root: str) -> None:
         config,
         docs_dir=docs_dir,
         site_dir=site_dir,
+        preview_path=preview_path.as_posix(),
     )
 
     (preview_dir / "mkdocs.yml").write_text(
